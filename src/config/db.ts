@@ -8,6 +8,7 @@ const mongoLocalURI: any = process.env.MONGO_LOCAL_URI;
 const connectDB = async () => {
   try {
     //connect mongodb atlas
+
     await mongoose.connect(mongoLocalURI, {
       useCreateIndex: true,
       useFindAndModify: false,

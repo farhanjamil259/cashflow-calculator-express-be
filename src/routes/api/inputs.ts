@@ -75,7 +75,7 @@ router.post("/:id", async (req: Request, res: Response) => {
 
       //save new inputs into db
       const newInputs = new Inputs(updatedInputs);
-      newInputs.save((err) => {
+      newInputs.save((err: any) => {
         if (!err) {
           res.send(newInputs);
         } else {

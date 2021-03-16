@@ -9,6 +9,10 @@ router.post("/", async (req, res) => {
   const {
     fname,
     lname,
+    email,
+    phone,
+    mobile,
+    address,
     birth_year,
     gender,
     userid,
@@ -19,10 +23,15 @@ router.post("/", async (req, res) => {
     modified,
     advisor,
   } = req.body;
+
   try {
     const newClient = new Client({
       fname,
       lname,
+      email,
+      phone,
+      mobile,
+      address,
       name: fname + " " + lname,
       birth_year,
       userid,
@@ -30,7 +39,6 @@ router.post("/", async (req, res) => {
       is_retired,
       retirement_age,
       access,
-
       created,
       modified,
       advisor,

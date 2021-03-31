@@ -68,7 +68,7 @@ router.post("/:id", async (req: Request, res: Response) => {
     //duplicate set name check
     const foundInputs: any = await Inputs.findOne({ input_set_name: inputs.input_set_name });
     if (foundInputs) {
-      res.status(409).json({ msg: "Input set name already exists" });
+      res.status(203).json({ msg: "Input set name already exists" });
     } else {
       //Calculate input values
       const updatedInputs: IInputs = setInputValues(inputs, assumptions, client_id);

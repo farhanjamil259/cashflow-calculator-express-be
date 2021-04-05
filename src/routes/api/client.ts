@@ -15,6 +15,7 @@ router.post("/", async (req, res) => {
     address,
     birth_year,
     gender,
+    notes,
     userid,
     is_retired,
     retirement_age,
@@ -36,6 +37,7 @@ router.post("/", async (req, res) => {
       birth_year,
       userid,
       gender,
+      notes,
       is_retired,
       retirement_age,
       access,
@@ -43,10 +45,21 @@ router.post("/", async (req, res) => {
       modified,
       advisor,
     });
-    newClient.save();
+    await newClient.save();
+
     res.status(200).json({ data: newClient, msg: "Client created" });
   } catch (err) {
     console.log(err);
+  }
+});
+
+router.patch("/", async (req, res) => {
+  try {
+    const response = await Client.findByIdAndUpdate(req.body._id, { $set: { notes: req.body.notes } });
+    console.log(req.body.notes);
+    res.status(200).json(response);
+  } catch (err) {
+    res.send(err);
   }
 });
 
@@ -58,6 +71,15 @@ router.get("/:userid", async (req, res) => {
   } catch (err) {
     console.log(err);
   }
+});
+
+//get client by id
+router.get("/:id", async (req, res) => {
+  const clientId = req.params.id;
+
+  const foundClient = await Client.findOne({ _id: clientId });
+
+  res.send(foundClient);
 });
 
 //delete client by id

@@ -5,6 +5,8 @@ import IForecast from "../interfaces/IForecast";
 export function setInitialForecastYear(inputs: IInputs, assumptions: IAssumptions) {
   const i = inputs.current_year;
 
+  console.log(inputs.household_expenses);
+
   //initial forecast object
   const yearObject: IForecast = {
     year: 0,
@@ -936,7 +938,63 @@ export function setInitialForecastYear(inputs: IInputs, assumptions: IAssumption
     yearObject.creditors.credit_cards.end_of_period * inputs.liabilities.credit_card.interest_rate;
 
   //set insurance policies
-  inputs.household_expenses.insurance_policies.map((policy) => {
+  inputs.household_expenses.insurance_policies.life_insurance.map((policy) => {
+    const name = policy.name;
+    let amount = 0;
+
+    const maxRetirementYear = inputs.household_owners.reduce((prev, current) => {
+      return prev.retirement_year > current.retirement_year ? prev : current;
+    });
+
+    if (i >= policy.start_year && i <= policy.end_year) {
+      if (i > maxRetirementYear.retirement_year) {
+        amount = -(
+          policy.annual_expense *
+          (1 + policy.inflation) ** (i - yearObject.year) *
+          policy.rate_after_retirement
+        );
+      } else {
+        amount = -(policy.annual_expense * (1 + policy.inflation) ** (i - yearObject.year));
+      }
+    } else {
+      amount = 0;
+    }
+
+    yearObject.household_expenses.financials.insurance_policies.details.push({
+      name,
+      amount,
+    });
+    yearObject.household_expenses.financials.insurance_policies.total += amount;
+  });
+  inputs.household_expenses.insurance_policies.critical_illness_cover.map((policy) => {
+    const name = policy.name;
+    let amount = 0;
+
+    const maxRetirementYear = inputs.household_owners.reduce((prev, current) => {
+      return prev.retirement_year > current.retirement_year ? prev : current;
+    });
+
+    if (i >= policy.start_year && i <= policy.end_year) {
+      if (i > maxRetirementYear.retirement_year) {
+        amount = -(
+          policy.annual_expense *
+          (1 + policy.inflation) ** (i - yearObject.year) *
+          policy.rate_after_retirement
+        );
+      } else {
+        amount = -(policy.annual_expense * (1 + policy.inflation) ** (i - yearObject.year));
+      }
+    } else {
+      amount = 0;
+    }
+
+    yearObject.household_expenses.financials.insurance_policies.details.push({
+      name,
+      amount,
+    });
+    yearObject.household_expenses.financials.insurance_policies.total += amount;
+  });
+  inputs.household_expenses.insurance_policies.family_income_benefit.map((policy) => {
     const name = policy.name;
     let amount = 0;
 

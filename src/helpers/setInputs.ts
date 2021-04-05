@@ -298,28 +298,26 @@ export const setInputValues = (inputs: IInputs, assumptions: IAssumptions, clien
   //set Insurance Policies
   //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Needs to be fixed (jank) --updated still jank cant take more that 2 owners
 
-  if (newInputs.household_owners.length < 2) {
-    newInputs.household_expenses.insurance_policies.map((policy) => {
-      policy.name = `${policy.name} ${newInputs.household_owners[0].name}`;
-      policy.inflation = newInputs.household_expenses.blanket_inflation_rate;
-      policy.start_year = newInputs.current_year;
-      policy.end_year = max(newInputs.household_owners).end_of_forecast_year;
-    });
-  } else {
-    let b = false;
-    newInputs.household_expenses.insurance_policies.map((policy) => {
-      if (!b) {
-        policy.name = `${policy.name} ${newInputs.household_owners[0].name}`;
-      }
-      if (b) {
-        policy.name = `${policy.name} ${newInputs.household_owners[1].name}`;
-      }
-      b = !b;
-      policy.inflation = newInputs.household_expenses.blanket_inflation_rate;
-      policy.start_year = newInputs.current_year;
-      policy.end_year = max(newInputs.household_owners).end_of_forecast_year;
-    });
-  }
+  newInputs.household_expenses.insurance_policies.life_insurance.map((p, i) => {
+    p.name = "Life Insurance - " + newInputs.household_owners[i].name;
+    p.inflation = newInputs.household_expenses.blanket_inflation_rate;
+    p.start_year = newInputs.current_year;
+    p.end_year = max(newInputs.household_owners).end_of_forecast_year;
+  });
+
+  newInputs.household_expenses.insurance_policies.critical_illness_cover.map((p, i) => {
+    p.name = "Life Insurance - " + newInputs.household_owners[i].name;
+    p.inflation = newInputs.household_expenses.blanket_inflation_rate;
+    p.start_year = newInputs.current_year;
+    p.end_year = max(newInputs.household_owners).end_of_forecast_year;
+  });
+
+  newInputs.household_expenses.insurance_policies.family_income_benefit.map((p, i) => {
+    p.name = "Life Insurance - " + newInputs.household_owners[i].name;
+    p.inflation = newInputs.household_expenses.blanket_inflation_rate;
+    p.start_year = newInputs.current_year;
+    p.end_year = max(newInputs.household_owners).end_of_forecast_year;
+  });
 
   //set children expenses
   newInputs.household_expenses.children_education_expenses.primary_school_fees.inflation =

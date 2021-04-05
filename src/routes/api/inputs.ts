@@ -75,7 +75,7 @@ router.post("/:id", async (req: Request, res: Response) => {
 
       //save new inputs into db
       const newInputs = new Inputs(updatedInputs);
-      newInputs.save((err: any) => {
+      await newInputs.save((err: any) => {
         if (!err) {
           res.send(newInputs);
         } else {
@@ -89,95 +89,37 @@ router.post("/:id", async (req: Request, res: Response) => {
   }
 });
 
+//@route PUT api/inputs/:id
+//@desc updates inputs by input id
+//@access public
+router.put("/:id", async (req, res) => {
+  const updatedInputs = await Inputs.findOneAndReplace({ _id: req.body._id }, req.body);
+  res.status(200).send({
+    msg: "Successfully added a new goal",
+    id: updatedInputs._id,
+  });
+});
+
 //@route PATCH api/inputs/:id
 //@desc updates inputs by input id
 //@access public
+
 router.patch("/:id", async (req: Request, res: Response) => {
-  //get id from params
-  const id = req.params.id;
-
-  //check if id is valid
-  if (validateId(id)) {
-    return res.json({ msg: "Invalid ID" });
-  }
-  const inputs: IInputs = req.body;
-  res.header("Access-Control-Allow-Origin", "*");
-
-  inputs.mortgages = [];
-  inputs.loans = [];
-  //set mortgages
-  inputs.liabilities.mortgages.map((mortgage) => {
-    //generate mortgage
-    const m = GenerateMortgage(
-      mortgage.original_balance,
-      mortgage.interest_rate,
-      mortgage.mortgage_period,
-      mortgage.number_of_payments_per_year,
-      mortgage.start_year
-    );
-    const newMortgageObject = {
-      user_input_field: {
-        loan_amount: mortgage.original_balance,
-        interest_rate: mortgage.interest_rate,
-        number_of_years: mortgage.mortgage_period,
-        number_of_payments_per_year: mortgage.number_of_payments_per_year,
-        start_date: DateTime.local(mortgage.start_year, 1, 1).toLocaleString(DateTime.DATE_FULL),
-      },
-      fixed_calculations: {
-        scheduled_payment_amount: m.scheduled_payment_amount,
-        total_number_of_payments: m.total_no_payments,
-        total_payment_amount: m.total_payment_amount,
-        total_interest_paid: m.total_interest_paid,
-        date_of_last_payment: m.date_of_last_payment.toLocaleString(DateTime.DATE_FULL),
-        annual_payments: m.annual_payments,
-      },
-      details: m.array,
-    };
-
-    inputs.mortgages.push(newMortgageObject);
-  });
-
-  //set loans
-  inputs.liabilities.other_loans.map((loan) => {
-    //generate loan
-    const m = GenerateLoan(
-      loan.original_balance,
-      loan.interest_rate,
-      loan.loan_period,
-      loan.number_of_payments_per_year,
-      loan.start_year
-    );
-    const newLoanObject = {
-      user_input_field: {
-        loan_amount: loan.original_balance,
-        interest_rate: loan.interest_rate,
-        number_of_years: loan.loan_period,
-        number_of_payments_per_year: loan.number_of_payments_per_year,
-        start_date: DateTime.local(loan.start_year, 1, 1).toLocaleString(DateTime.DATE_FULL),
-      },
-      fixed_calculations: {
-        scheduled_payment_amount: m.scheduled_payment_amount,
-        total_number_of_payments: m.total_no_payments,
-        total_payment_amount: m.total_payment_amount,
-        total_interest_paid: m.total_interest_paid,
-        date_of_last_payment: m.date_of_last_payment.toLocaleString(DateTime.DATE_FULL),
-        annual_payments: m.annual_payments,
-      },
-      details: m.array,
-    };
-
-    if (loan.original_balance !== 0) {
-      inputs.loans.push(newLoanObject);
-    }
-  });
-
+  const client_id = req.params.id;
   try {
-    const newInputs = await Inputs.findByIdAndUpdate(id, { $set: inputs }, { new: true });
+    //get assumptions from db
+    const assumptions: any = await Assumptions.findOne();
+    //get inputs from request
+    const inputs: IInputs = req.body;
 
-    !newInputs ? res.json({ msg: "Nothing to update" }) : res.send(newInputs);
+    //Calculate input values
+    const updatedInputs: IInputs = setInputValues(inputs, assumptions, client_id);
+
+    const response = await Inputs.findOneAndReplace({ _id: req.body._id }, updatedInputs);
+    res.status(200).json(response);
   } catch (err) {
-    console.log(err);
-    return res.status(500).send("Server Error");
+    console.log(err.message);
+    res.status(500).send("Server Error");
   }
 });
 

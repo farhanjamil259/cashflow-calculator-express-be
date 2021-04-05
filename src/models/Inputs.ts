@@ -883,34 +883,92 @@ const inputsSchema = new Schema(
           required: true,
         },
       },
-      insurance_policies: [
-        {
-          name: {
-            type: String,
-            required: true,
+      insurance_policies: {
+        life_insurance: [
+          {
+            name: {
+              type: String,
+              required: true,
+            },
+            annual_expense: {
+              type: Number,
+              required: true,
+            },
+            inflation: {
+              type: Number,
+              required: true,
+            },
+            start_year: {
+              type: Number,
+              required: true,
+            },
+            end_year: {
+              type: Number,
+              required: true,
+            },
+            rate_after_retirement: {
+              type: Number,
+              required: true,
+            },
           },
-          annual_expense: {
-            type: Number,
-            required: true,
+        ],
+        critical_illness_cover: [
+          {
+            name: {
+              type: String,
+              required: true,
+            },
+            annual_expense: {
+              type: Number,
+              required: true,
+            },
+            inflation: {
+              type: Number,
+              required: true,
+            },
+            start_year: {
+              type: Number,
+              required: true,
+            },
+            end_year: {
+              type: Number,
+              required: true,
+            },
+            rate_after_retirement: {
+              type: Number,
+              required: true,
+            },
           },
-          inflation: {
-            type: Number,
-            required: true,
+        ],
+        family_income_benefit: [
+          {
+            name: {
+              type: String,
+              required: true,
+            },
+            annual_expense: {
+              type: Number,
+              required: true,
+            },
+            inflation: {
+              type: Number,
+              required: true,
+            },
+            start_year: {
+              type: Number,
+              required: true,
+            },
+            end_year: {
+              type: Number,
+              required: true,
+            },
+            rate_after_retirement: {
+              type: Number,
+              required: true,
+            },
           },
-          start_year: {
-            type: Number,
-            required: true,
-          },
-          end_year: {
-            type: Number,
-            required: true,
-          },
-          rate_after_retirement: {
-            type: Number,
-            required: true,
-          },
-        },
-      ],
+        ],
+      },
       one_off_expenses: [
         {
           name: {

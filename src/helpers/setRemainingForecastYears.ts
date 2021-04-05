@@ -1096,7 +1096,63 @@ const setRemainingForecastYears = (
       remainingYearObject.household_expenses.financials.interest_expenses.details.amount;
 
     //set financials -> insurance policies
-    inputs.household_expenses.insurance_policies.map((policy) => {
+    inputs.household_expenses.insurance_policies.life_insurance.map((policy) => {
+      const name = policy.name;
+      let amount = 0;
+
+      const maxRetirementYear = inputs.household_owners.reduce((prev, current) => {
+        return prev.retirement_year > current.retirement_year ? prev : current;
+      });
+
+      if (i >= policy.start_year && i <= policy.end_year) {
+        if (i > maxRetirementYear.retirement_year) {
+          amount = -(
+            policy.annual_expense *
+            (1 + policy.inflation) ** (i - inputs.current_year) *
+            policy.rate_after_retirement
+          );
+        } else {
+          amount = -(policy.annual_expense * (1 + policy.inflation) ** (i - inputs.current_year));
+        }
+      } else {
+        amount = 0;
+      }
+
+      remainingYearObject.household_expenses.financials.insurance_policies.details.push({
+        name,
+        amount,
+      });
+      remainingYearObject.household_expenses.financials.insurance_policies.total += amount;
+    });
+    inputs.household_expenses.insurance_policies.critical_illness_cover.map((policy) => {
+      const name = policy.name;
+      let amount = 0;
+
+      const maxRetirementYear = inputs.household_owners.reduce((prev, current) => {
+        return prev.retirement_year > current.retirement_year ? prev : current;
+      });
+
+      if (i >= policy.start_year && i <= policy.end_year) {
+        if (i > maxRetirementYear.retirement_year) {
+          amount = -(
+            policy.annual_expense *
+            (1 + policy.inflation) ** (i - inputs.current_year) *
+            policy.rate_after_retirement
+          );
+        } else {
+          amount = -(policy.annual_expense * (1 + policy.inflation) ** (i - inputs.current_year));
+        }
+      } else {
+        amount = 0;
+      }
+
+      remainingYearObject.household_expenses.financials.insurance_policies.details.push({
+        name,
+        amount,
+      });
+      remainingYearObject.household_expenses.financials.insurance_policies.total += amount;
+    });
+    inputs.household_expenses.insurance_policies.family_income_benefit.map((policy) => {
       const name = policy.name;
       let amount = 0;
 

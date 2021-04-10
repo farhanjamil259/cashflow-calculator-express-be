@@ -1,6 +1,7 @@
 import IInputs from "../interfaces/IInputs";
 import IForecast from "../interfaces/IForecast";
 import IAssumptions from "../interfaces/IAssumptions";
+import { last } from "lodash";
 import e from "express";
 
 const setRemainingForecastYears = (
@@ -25,7 +26,12 @@ const setRemainingForecastYears = (
           amount: 0,
         },
         savings_and_investments: {
-          details: [],
+          individual_savings_accounts: {
+            details: [],
+          },
+          general_investment_accounts: {
+            details: [],
+          },
           total: 0,
         },
         personal_pension_plans: {
@@ -77,7 +83,12 @@ const setRemainingForecastYears = (
           total: 0,
         },
         savings_and_investments_income: {
-          details: [],
+          individual_savings_accounts: {
+            details: [],
+          },
+          general_investment_accounts: {
+            details: [],
+          },
           total: 0,
         },
         pension_income: {
@@ -151,7 +162,12 @@ const setRemainingForecastYears = (
             total: 0,
           },
           savings_and_investments: {
-            details: [],
+            individual_savings_accounts: {
+              details: [],
+            },
+            general_investment_accounts: {
+              details: [],
+            },
             total: 0,
           },
           pension_pot: {
@@ -166,7 +182,9 @@ const setRemainingForecastYears = (
             total: 0,
           },
           insurance_policies: {
-            details: [],
+            life_insurance: { details: [] },
+            critical_illness_cover: { details: [] },
+            family_income_benefit: { details: [] },
             total: 0,
           },
           total: 0,
@@ -182,6 +200,20 @@ const setRemainingForecastYears = (
         total_household_expenses: 0,
       },
       annual_cash_inflow_outflow: 0,
+      auto_liquidation: {
+        shortfall: 0,
+        aggregated_bank_Accounts: 0,
+        individual_savings_accounts: {
+          details: [],
+        },
+        pension_plans: {
+          details: [],
+        },
+        general_investment_accounts: {
+          details: [],
+        },
+        credit_card_borrowing: 0,
+      },
     };
     const lastYearObject = yearsArray[yearsArray.length - 1];
     const secondLastYearObject = yearsArray[yearsArray.length - 2];
@@ -211,8 +243,80 @@ const setRemainingForecastYears = (
       remainingYearObject.ages.children_ages.push({ name, age });
     });
 
-    //set HOUSEHOLD INCOME
-    //set houshold income -> employment income
+    //set assets -> properties
+    inputs.assets.properties.map((property) => {
+      const name = property.name;
+      let amount = 0;
+
+      if (i >= property.start_year && i < property.end_year) {
+        amount = property.todays_value * (1 + property.growth_rate) ** (i - inputs.current_year + 1);
+      } else {
+        amount = 0;
+      }
+
+      remainingYearObject.assets.properties.push({ name, amount });
+    });
+
+    //set creditors -> credit card -> beginning of periord
+    remainingYearObject.creditors.credit_cards.beginning_of_period =
+      lastYearObject.creditors.credit_cards.end_of_period;
+
+    //set creditors -> credit card requirement analysis -> bank balance at start of year
+    remainingYearObject.creditors.credit_card_requirement_analysis.balance_at_start_of_year =
+      lastYearObject.assets.bank_account.amount;
+
+    //set creditors -> credit card requirement analysis -> minimum balance acceptable
+    remainingYearObject.creditors.credit_card_requirement_analysis.minimum_balance_acceptable = -inputs.assets
+      .bank_accounts.minimum_cash_balance_acceptable;
+
+    remainingYearObject.creditors.credit_card_requirement_analysis.excess_cash_at_start_of_year =
+      remainingYearObject.creditors.credit_card_requirement_analysis.balance_at_start_of_year +
+      remainingYearObject.creditors.credit_card_requirement_analysis.minimum_balance_acceptable;
+
+    //set creditors -> mortgages
+    inputs.liabilities.mortgages.map((mortgage, index) => {
+      const name = mortgage.name;
+      let amount = 0;
+      const date = inputs.assets.properties[index].start_year - 1;
+
+      const indexToSearch = (i - date) * mortgage.number_of_payments_per_year;
+
+      if (i >= mortgage.start_year && i < mortgage.end_year) {
+        amount = -inputs.mortgages[index].details[indexToSearch - 1].remaining_balance;
+      } else {
+        amount = 0;
+      }
+      if (amount >= 0) {
+        amount = 0;
+      }
+
+      remainingYearObject.creditors.mortgages.details.push({ name, amount });
+      remainingYearObject.creditors.mortgages.total += amount;
+    });
+
+    //set creditors -> other loans
+    inputs.liabilities.other_loans.map((loan, index) => {
+      const name = loan.name;
+      let amount = 0;
+      const date = inputs.liabilities.other_loans[index].start_year - 1;
+
+      const indexToSearch = (i - date) * loan.number_of_payments_per_year;
+
+      if (i >= loan.start_year && i < loan.end_year) {
+        amount = -inputs.loans[index].details[indexToSearch - 1].remaining_balance;
+      } else {
+        amount = 0;
+      }
+      if (amount >= 0) {
+        amount = 0;
+      }
+
+      remainingYearObject.creditors.other_loans.details.push({ name, amount });
+      remainingYearObject.creditors.other_loans.total += amount;
+    });
+
+    //set income
+    //set employment income -> employment income
     inputs.household_owners.map((owner, index) => {
       let { employment_income } = inputs.household_income;
       let name = "Salary - " + owner.name;
@@ -408,6 +512,7 @@ const setRemainingForecastYears = (
       });
       remainingYearObject.household_income.dividend_income.total += amount;
     });
+
     //set houshold income -> savings and investments income
     inputs.household_income.savings_and_investments_drawdowns.individual_savings_accounts.map(
       (drawdown, index) => {
@@ -419,12 +524,17 @@ const setRemainingForecastYears = (
           }
         });
 
-        let amount2 = Math.min(lastYearObject.assets.savings_and_investments.details[index].amount, amount);
+        let amount2 = Math.min(
+          lastYearObject.assets.savings_and_investments.individual_savings_accounts.details[index].amount,
+          amount
+        );
 
-        remainingYearObject.household_income.savings_and_investments_income.details.push({
-          name,
-          amount: amount2,
-        });
+        remainingYearObject.household_income.savings_and_investments_income.individual_savings_accounts.details.push(
+          {
+            name,
+            amount: amount2,
+          }
+        );
         remainingYearObject.household_income.savings_and_investments_income.total += amount2;
       }
     );
@@ -441,20 +551,20 @@ const setRemainingForecastYears = (
         });
 
         let amount2 = Math.min(
-          lastYearObject.assets.savings_and_investments.details[index + inputs.household_owners.length]
-            .amount,
+          lastYearObject.assets.savings_and_investments.general_investment_accounts.details[index].amount,
           amount
         );
 
-        remainingYearObject.household_income.savings_and_investments_income.details.push({
-          name,
-          amount: amount2,
-        });
+        remainingYearObject.household_income.savings_and_investments_income.general_investment_accounts.details.push(
+          {
+            name,
+            amount: amount2,
+          }
+        );
         remainingYearObject.household_income.savings_and_investments_income.total += amount2;
       }
     );
 
-    //set houshold income -> pension income
     //state pension income
     inputs.household_income.pension_income.state_pension.map((income, index) => {
       const name = inputs.household_owners[index].name;
@@ -476,6 +586,7 @@ const setRemainingForecastYears = (
       });
       remainingYearObject.household_income.pension_income.state_pension_income.total += amount;
     });
+
     //defined benifit pension income
     inputs.household_income.pension_income.defined_benifit_pension_plans.map((income, index) => {
       const name = inputs.household_owners[index].name;
@@ -517,8 +628,6 @@ const setRemainingForecastYears = (
     });
 
     //set pension  income > defined contribution pension income
-
-    //e195 e196 e198
     //defined contribution pension income
     inputs.household_income.pension_income.defined_contribution_pension_plans.map((income, index) => {
       const name = inputs.household_owners[index].name;
@@ -920,7 +1029,7 @@ const setRemainingForecastYears = (
       });
       remainingYearObject.household_expenses.children_education_expenses.total = total;
     });
-    remainingYearObject.household_expenses.children_education_expenses;
+
     //set household expenses -> financials
     //other loans
     inputs.liabilities.other_loans.map((loan) => {
@@ -935,6 +1044,7 @@ const setRemainingForecastYears = (
       remainingYearObject.household_expenses.financials.other_loans.details.push({ name, amount });
       remainingYearObject.household_expenses.financials.other_loans.total += amount;
     });
+
     // savings and investments
     inputs.assets.savings_and_investments.individual_savings_account.map((sai) => {
       const name = sai.name;
@@ -955,10 +1065,12 @@ const setRemainingForecastYears = (
       amount = Math.min(tempAmount1, tempAmount2);
       amount *= -1;
 
-      remainingYearObject.household_expenses.financials.savings_and_investments.details.push({
-        name,
-        amount,
-      });
+      remainingYearObject.household_expenses.financials.savings_and_investments.individual_savings_accounts.details.push(
+        {
+          name,
+          amount,
+        }
+      );
       remainingYearObject.household_expenses.financials.savings_and_investments.total += amount;
     });
 
@@ -977,15 +1089,15 @@ const setRemainingForecastYears = (
 
       amount *= -1;
 
-      remainingYearObject.household_expenses.financials.savings_and_investments.details.push({
-        name,
-        amount,
-      });
+      remainingYearObject.household_expenses.financials.savings_and_investments.general_investment_accounts.details.push(
+        {
+          name,
+          amount,
+        }
+      );
       remainingYearObject.household_expenses.financials.savings_and_investments.total += amount;
     });
 
-    // amount not in use why--------------------------------------------------------------------------------
-    //e359
     //set pension pot
     inputs.assets.non_employment_defined_contribution_pension_plans.map((asset, index) => {
       let name = asset.name;
@@ -1084,7 +1196,6 @@ const setRemainingForecastYears = (
       remainingYearObject.household_expenses.financials.pension_pot.total += amount;
     });
 
-    //e344
     //set interest expenses
     remainingYearObject.household_expenses.financials.interest_expenses.details.name =
       inputs.liabilities.credit_card.name;
@@ -1095,7 +1206,7 @@ const setRemainingForecastYears = (
     remainingYearObject.household_expenses.financials.interest_expenses.total =
       remainingYearObject.household_expenses.financials.interest_expenses.details.amount;
 
-    //set financials -> insurance policies
+    //set financials -> insurance policies -> life insurance
     inputs.household_expenses.insurance_policies.life_insurance.map((policy) => {
       const name = policy.name;
       let amount = 0;
@@ -1118,12 +1229,14 @@ const setRemainingForecastYears = (
         amount = 0;
       }
 
-      remainingYearObject.household_expenses.financials.insurance_policies.details.push({
+      remainingYearObject.household_expenses.financials.insurance_policies.life_insurance.details.push({
         name,
         amount,
       });
       remainingYearObject.household_expenses.financials.insurance_policies.total += amount;
     });
+
+    //set financials -> insurance policies -> critical illness cover
     inputs.household_expenses.insurance_policies.critical_illness_cover.map((policy) => {
       const name = policy.name;
       let amount = 0;
@@ -1146,14 +1259,19 @@ const setRemainingForecastYears = (
         amount = 0;
       }
 
-      remainingYearObject.household_expenses.financials.insurance_policies.details.push({
-        name,
-        amount,
-      });
+      remainingYearObject.household_expenses.financials.insurance_policies.critical_illness_cover.details.push(
+        {
+          name,
+          amount,
+        }
+      );
       remainingYearObject.household_expenses.financials.insurance_policies.total += amount;
     });
+
+    //set financials -> insurance policies -> family income benifit
     inputs.household_expenses.insurance_policies.family_income_benefit.map((policy) => {
       const name = policy.name;
+
       let amount = 0;
 
       const maxRetirementYear = inputs.household_owners.reduce((prev, current) => {
@@ -1174,10 +1292,12 @@ const setRemainingForecastYears = (
         amount = 0;
       }
 
-      remainingYearObject.household_expenses.financials.insurance_policies.details.push({
-        name,
-        amount,
-      });
+      remainingYearObject.household_expenses.financials.insurance_policies.family_income_benefit.details.push(
+        {
+          name,
+          amount,
+        }
+      );
       remainingYearObject.household_expenses.financials.insurance_policies.total += amount;
     });
 
@@ -1188,39 +1308,10 @@ const setRemainingForecastYears = (
       remainingYearObject.household_expenses.financials.pension_pot.total +
       remainingYearObject.household_expenses.financials.interest_expenses.total +
       remainingYearObject.household_expenses.financials.insurance_policies.total;
-    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    //calc assets -> savings and investments
-    inputs.assets.savings_and_investments.individual_savings_account.map((sai, index) => {
-      const name = sai.name;
-      const amount =
-        lastYearObject.assets.savings_and_investments.details[index].amount * (1 + sai.growth_rate) -
-        remainingYearObject.household_expenses.financials.savings_and_investments.details[index].amount -
-        remainingYearObject.household_income.savings_and_investments_income.details[index].amount;
-      remainingYearObject.assets.savings_and_investments.details.push({ name, amount });
-      remainingYearObject.assets.savings_and_investments.total += amount;
-    });
-
-    inputs.assets.savings_and_investments.general_investment_account.map((sai, index) => {
-      const name = sai.name;
-      const amount =
-        lastYearObject.assets.savings_and_investments.details[index + inputs.household_owners.length].amount *
-          (1 + sai.growth_rate) -
-        remainingYearObject.household_expenses.financials.savings_and_investments.details[
-          index + inputs.household_owners.length
-        ].amount -
-        remainingYearObject.household_income.savings_and_investments_income.details[
-          index + inputs.household_owners.length
-        ].amount;
-
-      remainingYearObject.assets.savings_and_investments.details.push({ name, amount });
-      remainingYearObject.assets.savings_and_investments.total += amount;
-    });
 
     //set additional tax charge
-    inputs.household_owners.map((owner, index) => {
-      const name = owner.name;
-
+    inputs.household_owners.map((o, index) => {
+      const name = o.name;
       const gross_salary = remainingYearObject.household_income.employment_income.details[index].gross_salary;
 
       const member_pension_contribution =
@@ -1235,22 +1326,22 @@ const setRemainingForecastYears = (
       const rental_income = remainingYearObject.household_income.rental_income.details[index].amount;
 
       const taxable_pension_income =
-        remainingYearObject.household_income.pension_income.defined_benefit_pension_income.details[index]
+        lastYearObject.household_income.pension_income.defined_benefit_pension_income.details[index]
           .lump_sum *
           0.75 +
-        remainingYearObject.household_income.pension_income.defined_benefit_pension_income.details[index]
-          .annual +
-        remainingYearObject.household_income.pension_income.defined_contribution_pension_income.details[index]
+        lastYearObject.household_income.pension_income.defined_benefit_pension_income.details[index].annual +
+        lastYearObject.household_income.pension_income.defined_contribution_pension_income.details[index]
           .lump_sum_drawdown_option *
           0.75 +
-        remainingYearObject.household_income.pension_income.defined_contribution_pension_income.details[index]
+        lastYearObject.household_income.pension_income.defined_contribution_pension_income.details[index]
           .regular_drawdown_option *
           0.75 +
-        remainingYearObject.household_income.pension_income.defined_contribution_pension_income.details[index]
+        lastYearObject.household_income.pension_income.defined_contribution_pension_income.details[index]
           .annuity_option_initial_drawdown *
           0.75 +
-        remainingYearObject.household_income.pension_income.defined_contribution_pension_income.details[index]
-          .annuity_option_annuity_income;
+        lastYearObject.household_income.pension_income.defined_contribution_pension_income.details[index]
+          .annuity_option_annuity_income -
+        lastYearObject.auto_liquidation.pension_plans.details[index].amount * 0.75;
 
       const other_taxable_income =
         remainingYearObject.household_income.other_income.other_taxable_income.details.length > 0
@@ -1260,47 +1351,42 @@ const setRemainingForecastYears = (
       const pension_plan =
         remainingYearObject.household_expenses.financials.pension_pot.details[index].amount /
         (1 - assumptions.income_tax_rate_thresholds.basic_rate.rate);
-
-      // Prior year excess pension contribution
       let prior_year_excess_pension_contribution = 0;
       let val1 = 0;
       let val2 = 0;
       let val3 = 0;
 
       if (i === inputs.current_year + 1) {
-        //410
         val1 +=
           lastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.total_gross_pension_contribution;
-        //409
+
         val2 +=
           lastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance;
-        //388
+
         val3 +=
           lastYearObject.household_expenses.additional_tax_charge.details[index]
             .prior_year_excess_pension_contribution;
       } else if (i === inputs.current_year + 2) {
-        //410
         val1 +=
           lastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.total_gross_pension_contribution +
           secondLastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.total_gross_pension_contribution;
-        //409
+
         val2 +=
           lastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance +
           secondLastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance;
-        //388
+
         val3 +=
           lastYearObject.household_expenses.additional_tax_charge.details[index]
             .prior_year_excess_pension_contribution +
           secondLastYearObject.household_expenses.additional_tax_charge.details[index]
             .prior_year_excess_pension_contribution;
       } else if (i > inputs.current_year + 2) {
-        //410
         val1 +=
           lastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.total_gross_pension_contribution +
@@ -1308,7 +1394,7 @@ const setRemainingForecastYears = (
             .pension_annual_allowance_tapering_analysis.total_gross_pension_contribution +
           thirdLastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.total_gross_pension_contribution;
-        //409
+
         val2 +=
           lastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance +
@@ -1316,7 +1402,7 @@ const setRemainingForecastYears = (
             .pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance +
           thirdLastYearObject.household_expenses.additional_tax_charge.details[index]
             .pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance;
-        //388
+
         val3 +=
           lastYearObject.household_expenses.additional_tax_charge.details[index]
             .prior_year_excess_pension_contribution +
@@ -1333,10 +1419,6 @@ const setRemainingForecastYears = (
         taxable_pension_income +
         other_taxable_income +
         pension_plan;
-
-      const dividend_income = remainingYearObject.household_income.dividend_income.details[index].amount;
-
-      const total_taxable_income = total_taxable_income_excluding_dividends + dividend_income;
 
       let income_tax_charge_on_non_dividend_income = 0;
 
@@ -1378,6 +1460,10 @@ const setRemainingForecastYears = (
             assumptions.income_tax_rate_thresholds.additional_rate.rate
         );
       }
+
+      const dividend_income = remainingYearObject.household_income.dividend_income.details[index].amount;
+
+      const total_taxable_income = total_taxable_income_excluding_dividends + dividend_income;
 
       let income_tax_charge_on_dividend_income = 0;
 
@@ -1535,145 +1621,9 @@ const setRemainingForecastYears = (
       const tax_credit_received_through_pension =
         pension_plan * assumptions.income_tax_rate_thresholds.basic_rate.rate;
 
-      let tax_deducted_at_source =
-        remainingYearObject.household_income.employment_income.details[index].income_tax_charge;
-
-      if (tax_deducted_at_source < 0) {
-        tax_deducted_at_source *= -1;
-      }
-
-      //Pension Annual Allowance Tapering Analysis
-      const pension_annual_allowance_tapering_analysis = {
-        threshold_income: total_taxable_income,
-        exceeds_tapering_threshold: false,
-        adjusted_income:
-          total_taxable_income +
-          remainingYearObject.household_income.employer_pension_contribution.details[index].amount,
-        exceeds_tapering_threshold_2: false,
-        pension_contribution_annual_allowance: 0,
-        total_gross_pension_contribution:
-          -member_pension_contribution -
-          pension_plan +
-          remainingYearObject.household_income.employer_pension_contribution.details[index].amount,
-      };
-      if (
-        pension_annual_allowance_tapering_analysis.threshold_income >
-        assumptions.pension_contribution_allowance_tapering.threshold_income.threshold
-      ) {
-        pension_annual_allowance_tapering_analysis.exceeds_tapering_threshold = true;
-      } else {
-        pension_annual_allowance_tapering_analysis.exceeds_tapering_threshold = false;
-      }
-
-      if (
-        pension_annual_allowance_tapering_analysis.adjusted_income >
-        assumptions.pension_contribution_allowance_tapering.lifetime_allowance.threshold
-      ) {
-        pension_annual_allowance_tapering_analysis.exceeds_tapering_threshold_2 = true;
-      } else {
-        pension_annual_allowance_tapering_analysis.exceeds_tapering_threshold_2 = false;
-      }
-
-      if (!pension_annual_allowance_tapering_analysis.exceeds_tapering_threshold) {
-        pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance =
-          (assumptions.pension_contribution_allowance.contribution_annual_allowance.allowance *
-            (1 + assumptions.pension_contribution_allowance.contribution_annual_allowance.rate)) **
-          (i - inputs.current_year);
-      } else {
-        if (!pension_annual_allowance_tapering_analysis.exceeds_tapering_threshold_2) {
-          pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance =
-            assumptions.pension_contribution_allowance.contribution_annual_allowance.allowance;
-        } else {
-          pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance = Math.max(
-            (assumptions.pension_contribution_allowance.contribution_annual_allowance.allowance *
-              (1 + assumptions.pension_contribution_allowance.contribution_annual_allowance.rate)) **
-              (i - inputs.current_year) -
-              (pension_annual_allowance_tapering_analysis.adjusted_income -
-                assumptions.pension_contribution_allowance_tapering.threshold_income.threshold) *
-                assumptions.pension_contribution_allowance_tapering.lifetime_allowance.rate,
-            (assumptions.pension_contribution_allowance.contribution_annual_allowance_floor.allowance *
-              (1 + assumptions.pension_contribution_allowance.contribution_annual_allowance_floor.rate)) **
-              (i - inputs.current_year)
-          );
-        }
-      }
-
-      //Total Gains from Other Assets
-      const total_gains_from_other_assets = {
-        base_cost: 0,
-        accumulattive_gain: 0,
-        rate_recognised_as_base_cost: 0,
-        rate_recognised_as_gain: 0,
-        base_cost_drawdown: 0,
-        gain_drawdown: 0,
-      };
-
-      // ----------------------------------------------------------------------------------------------------------------------------------------------------------
-      total_gains_from_other_assets.rate_recognised_as_base_cost =
-        lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
-          .base_cost /
-        (lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
-          .base_cost +
-          lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
-            .accumulattive_gain);
-
-      total_gains_from_other_assets.rate_recognised_as_gain =
-        lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
-          .accumulattive_gain /
-        (lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
-          .base_cost +
-          lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
-            .accumulattive_gain);
-
-      total_gains_from_other_assets.base_cost_drawdown = Math.min(
-        lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
-          .base_cost -
-          remainingYearObject.household_expenses.financials.savings_and_investments.details[
-            index + inputs.household_owners.length
-          ].amount,
-        remainingYearObject.household_income.savings_and_investments_income.details[
-          index + inputs.household_owners.length
-        ].amount * total_gains_from_other_assets.rate_recognised_as_base_cost
-      );
-
-      //calc gain drawndown
-      total_gains_from_other_assets.gain_drawdown =
-        remainingYearObject.household_income.savings_and_investments_income.details[
-          index + inputs.household_owners.length
-        ].amount * total_gains_from_other_assets.rate_recognised_as_gain;
-
-      //calc base cost
-      total_gains_from_other_assets.base_cost = Math.max(
-        inputs.assets.savings_and_investments.general_investment_account[index].original_balance -
-          (yearsArray[0].household_expenses.financials.savings_and_investments.details[
-            index + inputs.household_owners.length
-          ].amount +
-            remainingYearObject.household_expenses.financials.savings_and_investments.details[
-              index + inputs.household_owners.length
-            ].amount) -
-          (yearsArray[0].household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
-            .base_cost_drawdown +
-            total_gains_from_other_assets.base_cost_drawdown),
-        0
-      );
-
-      total_gains_from_other_assets.accumulattive_gain = 0;
-
-      if (total_gains_from_other_assets.base_cost === 0) {
-        total_gains_from_other_assets.accumulattive_gain =
-          remainingYearObject.assets.savings_and_investments.details[
-            index + inputs.household_owners.length
-          ].amount;
-      } else {
-        total_gains_from_other_assets.accumulattive_gain =
-          remainingYearObject.assets.savings_and_investments.details[index + inputs.household_owners.length]
-            .amount + total_gains_from_other_assets.base_cost;
-      }
-
-      //Capital Gains
       const capital_gains = {
         total_gain_form_property_sale: 0,
-        total_gain_from_other_assets: total_gains_from_other_assets.gain_drawdown,
+        total_gain_from_other_assets: 0,
         annual_exemption_amount_property: 0,
         annual_exemption_amount_other_assets: 0,
         taxable_gains_from_property_sale: 0,
@@ -1696,23 +1646,8 @@ const setRemainingForecastYears = (
         -capital_gains.total_gain_form_property_sale
       );
 
-      if (
-        capital_gains.annual_exemption_amount_property >
-        -assumptions.income_limits_2.capital_gains_tax_annual_exempt_amount.threshold
-      ) {
-        capital_gains.annual_exemption_amount_other_assets = Math.max(
-          -(
-            assumptions.income_limits_2.capital_gains_tax_annual_exempt_amount.threshold -
-            -capital_gains.annual_exemption_amount_property
-          ),
-          -capital_gains.total_gain_from_other_assets
-        );
-      }
-
       capital_gains.taxable_gains_from_property_sale =
         capital_gains.total_gain_form_property_sale + capital_gains.annual_exemption_amount_property;
-      capital_gains.taxable_gains_from_other_assets =
-        capital_gains.total_gain_from_other_assets + capital_gains.annual_exemption_amount_other_assets;
 
       let capital_gains_tax_residential_property = 0;
 
@@ -1784,6 +1719,64 @@ const setRemainingForecastYears = (
           }
         }
       }
+
+      const total_gains_from_other_assets = {
+        base_cost: 0,
+        accumulattive_gain: 0,
+        rate_recognised_as_base_cost: 0,
+        rate_recognised_as_gain: 0,
+        base_cost_drawdown: 0,
+        gain_drawdown: 0,
+      };
+
+      if (i === inputs.current_year + 1) {
+        total_gains_from_other_assets.gain_drawdown = Math.min(
+          0 -
+            lastYearObject.household_expenses.financials.savings_and_investments.general_investment_accounts
+              .details[index].amount,
+          lastYearObject.household_income.savings_and_investments_income.general_investment_accounts.details[
+            index
+          ].amount *
+            lastYearObject.household_expenses.additional_tax_charge.details[index]
+              .total_gains_from_other_assets.rate_recognised_as_gain -
+            lastYearObject.auto_liquidation.general_investment_accounts.details[index].amount *
+              lastYearObject.household_expenses.additional_tax_charge.details[index]
+                .total_gains_from_other_assets.rate_recognised_as_gain
+        );
+      } else {
+        total_gains_from_other_assets.gain_drawdown = Math.min(
+          secondLastYearObject.household_expenses.additional_tax_charge.details[index]
+            .total_gains_from_other_assets.accumulattive_gain -
+            lastYearObject.household_expenses.financials.savings_and_investments.general_investment_accounts
+              .details[index].amount,
+          lastYearObject.household_income.savings_and_investments_income.general_investment_accounts.details[
+            index
+          ].amount *
+            lastYearObject.household_expenses.additional_tax_charge.details[index]
+              .total_gains_from_other_assets.rate_recognised_as_gain -
+            lastYearObject.auto_liquidation.general_investment_accounts.details[index].amount *
+              lastYearObject.household_expenses.additional_tax_charge.details[index]
+                .total_gains_from_other_assets.rate_recognised_as_gain
+        );
+      }
+
+      capital_gains.total_gain_from_other_assets = total_gains_from_other_assets.gain_drawdown;
+
+      if (
+        capital_gains.annual_exemption_amount_property >
+        -assumptions.income_limits_2.capital_gains_tax_annual_exempt_amount.threshold
+      ) {
+        capital_gains.annual_exemption_amount_other_assets = Math.max(
+          -(
+            assumptions.income_limits_2.capital_gains_tax_annual_exempt_amount.threshold -
+            -capital_gains.annual_exemption_amount_property
+          ),
+          -capital_gains.total_gain_from_other_assets
+        );
+      }
+
+      capital_gains.taxable_gains_from_other_assets =
+        capital_gains.total_gain_from_other_assets + capital_gains.annual_exemption_amount_other_assets;
 
       let capital_gains_tax_other_assets = 0;
 
@@ -1933,6 +1926,13 @@ const setRemainingForecastYears = (
         }
       }
 
+      let tax_deducted_at_source =
+        remainingYearObject.household_income.employment_income.details[index].income_tax_charge;
+
+      if (tax_deducted_at_source < 0) {
+        tax_deducted_at_source *= -1;
+      }
+
       const additional_tax =
         income_tax_charge_on_dividend_income +
         income_tax_charge_on_non_dividend_income +
@@ -1941,6 +1941,50 @@ const setRemainingForecastYears = (
         nic_class_4_charge +
         tax_credit_received_through_pension +
         tax_deducted_at_source;
+
+      const pension_annual_allowance_tapering_analysis = {
+        threshold_income: Math.abs(total_taxable_income),
+        exceeds_tapering_threshold:
+          total_taxable_income >
+          assumptions.pension_contribution_allowance_tapering.threshold_income.threshold,
+        adjusted_income:
+          total_taxable_income +
+          remainingYearObject.household_income.employer_pension_contribution.details[index].amount,
+        exceeds_tapering_threshold_2:
+          total_taxable_income +
+            remainingYearObject.household_income.employer_pension_contribution.details[index].amount >
+          assumptions.pension_contribution_allowance_tapering.lifetime_allowance.threshold,
+        pension_contribution_annual_allowance: 0,
+        total_gross_pension_contribution: 0,
+      };
+
+      if (!pension_annual_allowance_tapering_analysis.exceeds_tapering_threshold) {
+        pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance =
+          (assumptions.pension_contribution_allowance.contribution_annual_allowance.allowance *
+            (1 + assumptions.pension_contribution_allowance.contribution_annual_allowance.rate)) **
+          (i - inputs.current_year);
+      } else {
+        if (!pension_annual_allowance_tapering_analysis.exceeds_tapering_threshold_2) {
+          pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance =
+            assumptions.pension_contribution_allowance.contribution_annual_allowance.allowance;
+        } else {
+          pension_annual_allowance_tapering_analysis.pension_contribution_annual_allowance = Math.max(
+            (assumptions.pension_contribution_allowance.contribution_annual_allowance.allowance *
+              (1 + assumptions.pension_contribution_allowance.contribution_annual_allowance.rate)) **
+              (i - inputs.current_year) -
+              (pension_annual_allowance_tapering_analysis.adjusted_income -
+                assumptions.pension_contribution_allowance_tapering.threshold_income.threshold) *
+                assumptions.pension_contribution_allowance_tapering.lifetime_allowance.rate,
+            (assumptions.pension_contribution_allowance.contribution_annual_allowance_floor.allowance *
+              (1 + assumptions.pension_contribution_allowance.contribution_annual_allowance_floor.rate)) **
+              (i - inputs.current_year)
+          );
+        }
+      }
+      pension_annual_allowance_tapering_analysis.total_gross_pension_contribution =
+        -member_pension_contribution -
+        pension_plan +
+        remainingYearObject.household_income.employer_pension_contribution.details[index].amount;
 
       remainingYearObject.household_expenses.additional_tax_charge.details.push({
         name,
@@ -1966,13 +2010,12 @@ const setRemainingForecastYears = (
         capital_gains_tax_other_assets,
         tax_deducted_at_source,
         additional_tax,
-        pension_annual_allowance_tapering_analysis,
         capital_gains,
+        pension_annual_allowance_tapering_analysis,
         total_gains_from_other_assets,
       });
     });
 
-    //set household expenses -> finantials -> sdlt charge
     inputs.assets.properties.map((property) => {
       const name = property.name;
       let amount = 0;
@@ -2016,114 +2059,491 @@ const setRemainingForecastYears = (
       remainingYearObject.household_income.total +
       remainingYearObject.household_expenses.total_household_expenses;
 
-    //set ASSETS
-    //set assets -> properties
-    inputs.assets.properties.map((property) => {
-      const name = property.name;
-      let amount = 0;
-
-      if (i >= property.start_year && i < property.end_year) {
-        amount = property.todays_value * (1 + property.growth_rate) ** (i - inputs.current_year + 1);
-      } else {
-        amount = 0;
-      }
-
-      remainingYearObject.assets.properties.push({ name, amount });
-    });
-
-    //set CREDITORS
-    //set credit card requirement analysis
-    remainingYearObject.creditors.credit_card_requirement_analysis.balance_at_start_of_year =
-      lastYearObject.assets.bank_account.amount;
-
-    remainingYearObject.creditors.credit_card_requirement_analysis.minimum_balance_acceptable = -inputs.assets
-      .bank_accounts.minimum_cash_balance_acceptable;
-
-    remainingYearObject.creditors.credit_card_requirement_analysis.excess_cash_at_start_of_year =
-      remainingYearObject.creditors.credit_card_requirement_analysis.balance_at_start_of_year +
-      remainingYearObject.creditors.credit_card_requirement_analysis.minimum_balance_acceptable;
-
-    //set creditors -> mortgages
-    inputs.liabilities.mortgages.map((mortgage, index) => {
-      const name = mortgage.name;
-      let amount = 0;
-      const date = inputs.assets.properties[index].start_year - 1;
-
-      const indexToSearch = (i - date) * mortgage.number_of_payments_per_year;
-
-      if (i >= mortgage.start_year && i < mortgage.end_year) {
-        amount = -inputs.mortgages[index].details[indexToSearch - 1].remaining_balance;
-      } else {
-        amount = 0;
-      }
-      if (amount >= 0) {
-        amount = 0;
-      }
-
-      remainingYearObject.creditors.mortgages.details.push({ name, amount });
-      remainingYearObject.creditors.mortgages.total += amount;
-    });
-
-    //set creditors -> other loans
-    inputs.liabilities.other_loans.map((loan, index) => {
-      const name = loan.name;
-      let amount = 0;
-      const date = inputs.liabilities.other_loans[index].start_year - 1;
-
-      const indexToSearch = (i - date) * loan.number_of_payments_per_year;
-
-      if (i >= loan.start_year && i < loan.end_year) {
-        amount = -inputs.loans[index].details[indexToSearch - 1].remaining_balance;
-      } else {
-        amount = 0;
-      }
-      if (amount >= 0) {
-        amount = 0;
-      }
-
-      remainingYearObject.creditors.other_loans.details.push({ name, amount });
-      remainingYearObject.creditors.other_loans.total += amount;
-    });
-
-    //set credit card requirement analysis
-    remainingYearObject.creditors.credit_card_requirement_analysis.balance_at_start_of_year =
-      lastYearObject.assets.bank_account.amount;
-    remainingYearObject.creditors.credit_card_requirement_analysis.minimum_balance_acceptable = -inputs.assets
-      .bank_accounts.minimum_cash_balance_acceptable;
-    remainingYearObject.creditors.credit_card_requirement_analysis.excess_cash_at_start_of_year =
-      remainingYearObject.creditors.credit_card_requirement_analysis.balance_at_start_of_year +
-      remainingYearObject.creditors.credit_card_requirement_analysis.minimum_balance_acceptable;
-
     remainingYearObject.creditors.credit_card_requirement_analysis.total_cash_inflow_outflow =
       remainingYearObject.annual_cash_inflow_outflow;
+
     remainingYearObject.creditors.credit_card_requirement_analysis.cash_available =
       remainingYearObject.creditors.credit_card_requirement_analysis.excess_cash_at_start_of_year +
       remainingYearObject.creditors.credit_card_requirement_analysis.total_cash_inflow_outflow;
 
-    //set creditors -> credit cards
-    //e117
-    //set Beginning of Period
-    remainingYearObject.creditors.credit_cards.name = lastYearObject.creditors.credit_cards.name;
-    remainingYearObject.creditors.credit_cards.beginning_of_period =
-      lastYearObject.creditors.credit_cards.end_of_period;
-
-    //e118
-    //set Change in Year
-    remainingYearObject.creditors.credit_cards.change_in_year = Math.min(
-      remainingYearObject.creditors.credit_card_requirement_analysis.cash_available,
-      Math.abs(remainingYearObject.creditors.credit_cards.beginning_of_period)
+    remainingYearObject.auto_liquidation.shortfall = -Math.min(
+      0,
+      remainingYearObject.annual_cash_inflow_outflow
     );
 
-    //e119
-    //Set End of Period
+    if (remainingYearObject.creditors.credit_card_requirement_analysis.excess_cash_at_start_of_year < 0) {
+      remainingYearObject.auto_liquidation.aggregated_bank_Accounts = 0;
+    } else {
+      remainingYearObject.auto_liquidation.aggregated_bank_Accounts = -Math.min(
+        remainingYearObject.auto_liquidation.shortfall,
+        remainingYearObject.creditors.credit_card_requirement_analysis.excess_cash_at_start_of_year
+      );
+    }
+
+    if (inputs.household_owners.length === 1) {
+      const name = inputs.assets.savings_and_investments.individual_savings_account[0].name;
+      let amount = 0;
+      if (
+        remainingYearObject.auto_liquidation.shortfall +
+          remainingYearObject.auto_liquidation.aggregated_bank_Accounts >
+        0
+      ) {
+        amount = Math.min(
+          lastYearObject.assets.savings_and_investments.individual_savings_accounts.details[0].amount *
+            (1 + inputs.assets.savings_and_investments.individual_savings_account[0].growth_rate) -
+            remainingYearObject.household_expenses.financials.savings_and_investments
+              .individual_savings_accounts.details[0].amount -
+            remainingYearObject.household_income.savings_and_investments_income.individual_savings_accounts
+              .details[0].amount,
+          remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts
+        );
+      }
+
+      remainingYearObject.auto_liquidation.individual_savings_accounts.details.push({ amount, name });
+    } else {
+      const name = inputs.assets.savings_and_investments.individual_savings_account[0].name;
+      let amount1 = 0;
+
+      const name2 = inputs.assets.savings_and_investments.individual_savings_account[1].name;
+      let amount2 = 0;
+      if (
+        remainingYearObject.auto_liquidation.shortfall +
+          remainingYearObject.auto_liquidation.aggregated_bank_Accounts >
+        0
+      ) {
+        amount1 = Math.min(
+          lastYearObject.assets.savings_and_investments.individual_savings_accounts.details[0].amount *
+            (1 + inputs.assets.savings_and_investments.individual_savings_account[0].growth_rate) -
+            remainingYearObject.household_expenses.financials.savings_and_investments
+              .individual_savings_accounts.details[0].amount -
+            remainingYearObject.household_income.savings_and_investments_income.individual_savings_accounts
+              .details[0].amount,
+          remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts
+        );
+      }
+
+      remainingYearObject.auto_liquidation.individual_savings_accounts.details.push({
+        amount: amount1,
+        name,
+      });
+      remainingYearObject.auto_liquidation.individual_savings_accounts.details.push({
+        amount: amount2,
+        name: name2,
+      });
+      if (
+        remainingYearObject.auto_liquidation.shortfall +
+          remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+          remainingYearObject.auto_liquidation.individual_savings_accounts.details[0].amount >
+        0
+      ) {
+        remainingYearObject.auto_liquidation.individual_savings_accounts.details[1].name =
+          inputs.assets.savings_and_investments.individual_savings_account[1].name;
+        remainingYearObject.auto_liquidation.individual_savings_accounts.details[1].amount = Math.min(
+          lastYearObject.assets.savings_and_investments.individual_savings_accounts.details[1].amount *
+            (1 + inputs.assets.savings_and_investments.individual_savings_account[1].growth_rate) -
+            remainingYearObject.household_expenses.financials.savings_and_investments
+              .individual_savings_accounts.details[1].amount -
+            remainingYearObject.household_income.savings_and_investments_income.individual_savings_accounts
+              .details[1].amount,
+          remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details[0].amount +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details[0].amount
+        );
+      }
+    }
+
+    if (inputs.household_owners.length === 1) {
+      const name = "Pension Plan - " + inputs.household_owners[0].name;
+      let amount = 0;
+      if (i > inputs.household_owners[0].retirement_year) {
+        if (
+          remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+              (a, b) => a + b.amount,
+              0
+            ) >
+          0
+        ) {
+          //val1
+          let val1 = 0;
+          if (
+            inputs.household_income.pension_income.defined_contribution_pension_plans[0].option_taken ===
+            "Drawdown"
+          ) {
+            if (i > inputs.household_owners[0].retirement_year) {
+              val1 =
+                lastYearObject.assets.personal_pension_plans.details[0].amount *
+                  (1 + inputs.assets.non_employment_defined_contribution_pension_plans[0].growth_rate) -
+                remainingYearObject.household_income.pension_income.defined_contribution_pension_income
+                  .details[0].regular_drawdown_option;
+            } else {
+              val1 =
+                lastYearObject.assets.personal_pension_plans.details[0].amount *
+                  (1 + inputs.assets.non_employment_defined_contribution_pension_plans[0].growth_rate) +
+                remainingYearObject.household_income.employer_pension_contribution.details[0].amount -
+                remainingYearObject.household_income.employment_income.details[0]
+                  .members_pension_contribution -
+                remainingYearObject.household_expenses.financials.pension_pot.details[0].amount -
+                remainingYearObject.household_expenses.additional_tax_charge.details[0]
+                  .tax_credit_received_through_pension;
+            }
+          } else {
+            if (i > inputs.household_owners[0].retirement_year) {
+              val1 = 0;
+            } else {
+              val1 =
+                lastYearObject.assets.personal_pension_plans.details[0].amount *
+                  (1 + inputs.assets.non_employment_defined_contribution_pension_plans[0].growth_rate) +
+                remainingYearObject.household_income.employer_pension_contribution.details[0].amount -
+                remainingYearObject.household_income.employment_income.details[0]
+                  .members_pension_contribution -
+                remainingYearObject.household_expenses.financials.pension_pot.details[0].amount -
+                remainingYearObject.household_expenses.additional_tax_charge.details[0]
+                  .tax_credit_received_through_pension;
+            }
+          }
+
+          //val2
+          let val2 =
+            remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+              (a, b) => a + b.amount,
+              0
+            );
+
+          amount = Math.min(val1, val2);
+
+          remainingYearObject.auto_liquidation.pension_plans.details.push({ amount, name });
+        }
+      }
+    } else {
+      const name2 = "Pension Plan - " + inputs.household_owners[0].name;
+      let amount2 = 0;
+
+      if (i > inputs.household_owners[0].retirement_year) {
+        if (
+          remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+              (a, b) => a + b.amount,
+              0
+            ) >
+          0
+        ) {
+          //val1
+          let val1 = 0;
+          if (
+            inputs.household_income.pension_income.defined_contribution_pension_plans[0].option_taken ===
+            "Drawdown"
+          ) {
+            if (i > inputs.household_owners[0].retirement_year) {
+              val1 =
+                lastYearObject.assets.personal_pension_plans.details[0].amount *
+                  (1 + inputs.assets.non_employment_defined_contribution_pension_plans[0].growth_rate) -
+                remainingYearObject.household_income.pension_income.defined_contribution_pension_income
+                  .details[0].regular_drawdown_option;
+            } else {
+              val1 =
+                lastYearObject.assets.personal_pension_plans.details[0].amount *
+                  (1 + inputs.assets.non_employment_defined_contribution_pension_plans[0].growth_rate) +
+                remainingYearObject.household_income.employer_pension_contribution.details[0].amount -
+                remainingYearObject.household_income.employment_income.details[0]
+                  .members_pension_contribution -
+                remainingYearObject.household_expenses.financials.pension_pot.details[0].amount -
+                remainingYearObject.household_expenses.additional_tax_charge.details[0]
+                  .tax_credit_received_through_pension;
+            }
+          } else {
+            if (i > inputs.household_owners[0].retirement_year) {
+              val1 = 0;
+            } else {
+              val1 =
+                lastYearObject.assets.personal_pension_plans.details[0].amount *
+                  (1 + inputs.assets.non_employment_defined_contribution_pension_plans[0].growth_rate) +
+                remainingYearObject.household_income.employer_pension_contribution.details[0].amount -
+                remainingYearObject.household_income.employment_income.details[0]
+                  .members_pension_contribution -
+                remainingYearObject.household_expenses.financials.pension_pot.details[0].amount -
+                remainingYearObject.household_expenses.additional_tax_charge.details[0]
+                  .tax_credit_received_through_pension;
+            }
+          }
+
+          //val2
+          let val2 =
+            remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+              (a, b) => a + b.amount,
+              0
+            );
+
+          amount2 = Math.min(val1, val2);
+        }
+      }
+
+      remainingYearObject.auto_liquidation.pension_plans.details.push({ amount: amount2, name: name2 });
+
+      const name3 = "Pension Plan - " + inputs.household_owners[1].name;
+      let amount3 = 0;
+      if (i > inputs.household_owners[1].retirement_year) {
+        if (
+          remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+              (a, b) => a + b.amount,
+              0
+            ) +
+            remainingYearObject.auto_liquidation.pension_plans.details[0].amount >
+          0
+        ) {
+          //val1
+          let val1 = 0;
+          if (
+            inputs.household_income.pension_income.defined_contribution_pension_plans[1].option_taken ===
+            "Drawdown"
+          ) {
+            if (i > inputs.household_owners[1].retirement_year) {
+              val1 =
+                lastYearObject.assets.personal_pension_plans.details[1].amount *
+                  (1 + inputs.assets.non_employment_defined_contribution_pension_plans[1].growth_rate) -
+                remainingYearObject.household_income.pension_income.defined_contribution_pension_income
+                  .details[1].regular_drawdown_option;
+            } else {
+              val1 =
+                lastYearObject.assets.personal_pension_plans.details[1].amount *
+                  (1 + inputs.assets.non_employment_defined_contribution_pension_plans[1].growth_rate) +
+                remainingYearObject.household_income.employer_pension_contribution.details[1].amount -
+                remainingYearObject.household_income.employment_income.details[1]
+                  .members_pension_contribution -
+                remainingYearObject.household_expenses.financials.pension_pot.details[1].amount -
+                remainingYearObject.household_expenses.additional_tax_charge.details[1]
+                  .tax_credit_received_through_pension;
+            }
+          } else {
+            if (i > inputs.household_owners[1].retirement_year) {
+              val1 = 0;
+            } else {
+              val1 =
+                lastYearObject.assets.personal_pension_plans.details[1].amount *
+                  (1 + inputs.assets.non_employment_defined_contribution_pension_plans[1].growth_rate) +
+                remainingYearObject.household_income.employer_pension_contribution.details[1].amount -
+                remainingYearObject.household_income.employment_income.details[1]
+                  .members_pension_contribution -
+                remainingYearObject.household_expenses.financials.pension_pot.details[1].amount -
+                remainingYearObject.household_expenses.additional_tax_charge.details[1]
+                  .tax_credit_received_through_pension;
+            }
+          }
+
+          //val2
+          let val2 =
+            remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+              (a, b) => a + b.amount,
+              0
+            ) +
+            +remainingYearObject.auto_liquidation.pension_plans.details[0].amount;
+
+          amount3 = Math.min(val1, val2);
+        }
+      }
+
+      remainingYearObject.auto_liquidation.pension_plans.details.push({ amount: amount3, name: name3 });
+    }
+
+    if (inputs.household_owners.length === 1) {
+      const name = inputs.assets.savings_and_investments.general_investment_account[0].name;
+      let amount = 0;
+      if (
+        remainingYearObject.auto_liquidation.shortfall +
+          remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+          remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+            (a, b) => a + b.amount,
+            0
+          ) +
+          remainingYearObject.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0) >
+        0
+      ) {
+        amount = Math.min(
+          lastYearObject.assets.savings_and_investments.general_investment_accounts.details[0].amount *
+            (1 + inputs.assets.savings_and_investments.general_investment_account[0].growth_rate) -
+            remainingYearObject.household_expenses.financials.savings_and_investments
+              .general_investment_accounts.details[0].amount -
+            remainingYearObject.household_income.savings_and_investments_income.general_investment_accounts
+              .details[0].amount,
+          remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+              (a, b) => a + b.amount,
+              0
+            ) +
+            remainingYearObject.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0)
+        );
+      }
+
+      remainingYearObject.auto_liquidation.general_investment_accounts.details.push({ amount, name });
+    } else {
+      const name = inputs.assets.savings_and_investments.general_investment_account[0].name;
+      let amount1 = 0;
+
+      const name2 = inputs.assets.savings_and_investments.general_investment_account[1].name;
+      let amount2 = 0;
+      if (
+        remainingYearObject.auto_liquidation.shortfall +
+          remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+          remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+            (a, b) => a + b.amount,
+            0
+          ) +
+          remainingYearObject.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0) >
+        0
+      ) {
+        amount1 = Math.min(
+          lastYearObject.assets.savings_and_investments.general_investment_accounts.details[0].amount *
+            (1 + inputs.assets.savings_and_investments.general_investment_account[0].growth_rate) -
+            remainingYearObject.household_expenses.financials.savings_and_investments
+              .general_investment_accounts.details[0].amount -
+            remainingYearObject.household_income.savings_and_investments_income.general_investment_accounts
+              .details[0].amount,
+          remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts
+        );
+      }
+
+      remainingYearObject.auto_liquidation.general_investment_accounts.details.push({
+        amount: amount1,
+        name,
+      });
+      remainingYearObject.auto_liquidation.general_investment_accounts.details.push({
+        amount: amount2,
+        name: name2,
+      });
+      if (
+        remainingYearObject.auto_liquidation.shortfall +
+          remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+          remainingYearObject.auto_liquidation.general_investment_accounts.details[0].amount +
+          remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+            (a, b) => a + b.amount,
+            0
+          ) +
+          remainingYearObject.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0) >
+        0
+      ) {
+        remainingYearObject.auto_liquidation.general_investment_accounts.details[1].name =
+          inputs.assets.savings_and_investments.general_investment_account[1].name;
+        remainingYearObject.auto_liquidation.general_investment_accounts.details[1].amount = Math.min(
+          lastYearObject.assets.savings_and_investments.general_investment_accounts.details[1].amount *
+            (1 + inputs.assets.savings_and_investments.general_investment_account[1].growth_rate) -
+            remainingYearObject.household_expenses.financials.savings_and_investments
+              .general_investment_accounts.details[1].amount -
+            remainingYearObject.household_income.savings_and_investments_income.general_investment_accounts
+              .details[1].amount,
+          remainingYearObject.auto_liquidation.shortfall +
+            remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+            remainingYearObject.auto_liquidation.general_investment_accounts.details[0].amount +
+            remainingYearObject.auto_liquidation.general_investment_accounts.details[0].amount +
+            remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+              (a, b) => a + b.amount,
+              0
+            ) +
+            remainingYearObject.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0)
+        );
+      }
+    }
+
+    remainingYearObject.auto_liquidation.credit_card_borrowing =
+      remainingYearObject.auto_liquidation.shortfall +
+      remainingYearObject.auto_liquidation.aggregated_bank_Accounts +
+      remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+        (a, b) => a + b.amount,
+        0
+      ) +
+      +remainingYearObject.auto_liquidation.general_investment_accounts.details.reduce(
+        (a, b) => a + b.amount,
+        0
+      ) +
+      remainingYearObject.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0);
+
+    remainingYearObject.creditors.credit_cards.change_in_year = 0;
+
+    if (remainingYearObject.creditors.credit_card_requirement_analysis.cash_available < 0) {
+      remainingYearObject.creditors.credit_cards.change_in_year =
+        remainingYearObject.auto_liquidation.credit_card_borrowing;
+    } else {
+      remainingYearObject.creditors.credit_cards.change_in_year = Math.min(
+        remainingYearObject.creditors.credit_card_requirement_analysis.cash_available,
+        -remainingYearObject.creditors.credit_cards.beginning_of_period
+      );
+    }
+    remainingYearObject.creditors.credit_cards.name = inputs.liabilities.credit_card.name;
+
     remainingYearObject.creditors.credit_cards.end_of_period =
       remainingYearObject.creditors.credit_cards.beginning_of_period +
       remainingYearObject.creditors.credit_cards.change_in_year;
 
-    //e98
-    //set assets personal pension plans
-    inputs.household_income.pension_income.defined_contribution_pension_plans.map((income, index) => {
-      let name = income.name;
+    inputs.assets.savings_and_investments.individual_savings_account.map((sai, index) => {
+      const name = sai.name;
+      const amount =
+        lastYearObject.assets.savings_and_investments.individual_savings_accounts.details[index].amount *
+          (1 + sai.growth_rate) -
+        remainingYearObject.household_expenses.financials.savings_and_investments.individual_savings_accounts
+          .details[index].amount -
+        remainingYearObject.household_income.savings_and_investments_income.individual_savings_accounts
+          .details[index].amount +
+        remainingYearObject.auto_liquidation.individual_savings_accounts.details[index].amount;
+
+      remainingYearObject.assets.savings_and_investments.individual_savings_accounts.details.push({
+        name,
+        amount,
+      });
+
+      remainingYearObject.assets.savings_and_investments.total += amount;
+    });
+
+    inputs.assets.savings_and_investments.general_investment_account.map((sai, index) => {
+      const name = sai.name;
+      const amount =
+        lastYearObject.assets.savings_and_investments.general_investment_accounts.details[index].amount *
+          (1 + sai.growth_rate) -
+        remainingYearObject.household_expenses.financials.savings_and_investments.general_investment_accounts
+          .details[index].amount -
+        remainingYearObject.household_income.savings_and_investments_income.general_investment_accounts
+          .details[index].amount +
+        remainingYearObject.auto_liquidation.general_investment_accounts.details[index].amount;
+
+      remainingYearObject.assets.savings_and_investments.general_investment_accounts.details.push({
+        name,
+        amount,
+      });
+
+      remainingYearObject.assets.savings_and_investments.total += amount;
+    });
+
+    remainingYearObject.assets.bank_account.name = "Aggregated Bank Accounts";
+    remainingYearObject.assets.bank_account.amount =
+      lastYearObject.assets.bank_account.amount * (1 + inputs.assets.bank_accounts.growth_rate) -
+      remainingYearObject.creditors.credit_cards.change_in_year +
+      remainingYearObject.annual_cash_inflow_outflow -
+      (remainingYearObject.auto_liquidation.individual_savings_accounts.details.reduce(
+        (a, b) => a + b.amount,
+        0
+      ) +
+        remainingYearObject.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0) +
+        remainingYearObject.auto_liquidation.general_investment_accounts.details.reduce(
+          (a, b) => a + b.amount,
+          0
+        ));
+
+    //set assets -> personal pension plans
+    inputs.assets.non_employment_defined_contribution_pension_plans.map((dcpp, index) => {
+      const name = dcpp.name;
       let amount = 0;
 
       if (
@@ -2132,15 +2552,13 @@ const setRemainingForecastYears = (
       ) {
         if (i > inputs.household_owners[index].retirement_year) {
           amount =
-            lastYearObject.assets.personal_pension_plans.details[index].amount *
-              (1 + inputs.assets.non_employment_defined_contribution_pension_plans[index].growth_rate) -
+            lastYearObject.assets.personal_pension_plans.details[index].amount * (1 + dcpp.growth_rate) -
             remainingYearObject.household_income.pension_income.defined_contribution_pension_income.details[
               index
             ].regular_drawdown_option;
         } else {
           amount =
-            lastYearObject.assets.personal_pension_plans.details[index].amount *
-              (1 + inputs.assets.non_employment_defined_contribution_pension_plans[index].growth_rate) +
+            lastYearObject.assets.personal_pension_plans.details[index].amount * (1 + dcpp.growth_rate) +
             remainingYearObject.household_income.employer_pension_contribution.details[index].amount -
             remainingYearObject.household_income.employment_income.details[index]
               .members_pension_contribution -
@@ -2153,8 +2571,7 @@ const setRemainingForecastYears = (
           amount = 0;
         } else {
           amount =
-            lastYearObject.assets.personal_pension_plans.details[index].amount *
-              (1 + inputs.assets.non_employment_defined_contribution_pension_plans[index].growth_rate) +
+            lastYearObject.assets.personal_pension_plans.details[index].amount * (1 + dcpp.growth_rate) +
             remainingYearObject.household_income.employer_pension_contribution.details[index].amount -
             remainingYearObject.household_income.employment_income.details[index]
               .members_pension_contribution -
@@ -2164,18 +2581,115 @@ const setRemainingForecastYears = (
         }
       }
 
+      amount += Math.abs(remainingYearObject.auto_liquidation.pension_plans.details[index].amount);
       remainingYearObject.assets.personal_pension_plans.details.push({ name, amount });
       remainingYearObject.assets.personal_pension_plans.total += amount;
     });
 
-    //aggregated bank accounts
-    remainingYearObject.assets.bank_account.name = lastYearObject.assets.bank_account.name;
-    remainingYearObject.assets.bank_account.amount =
-      lastYearObject.assets.bank_account.amount * (1 + inputs.assets.bank_accounts.growth_rate) -
-      remainingYearObject.creditors.credit_cards.change_in_year +
-      remainingYearObject.annual_cash_inflow_outflow;
+    remainingYearObject.household_expenses.additional_tax_charge.details.map((atc, index) => {
+      atc.total_gains_from_other_assets.rate_recognised_as_base_cost = 0;
+      atc.total_gains_from_other_assets.rate_recognised_as_gain = 0;
 
-    //push new object to array
+      if (
+        lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
+          .base_cost < 1
+      ) {
+        atc.total_gains_from_other_assets.rate_recognised_as_base_cost = 0;
+      } else {
+        atc.total_gains_from_other_assets.rate_recognised_as_base_cost =
+          lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
+            .base_cost /
+          (lastYearObject.household_expenses.additional_tax_charge.details[index]
+            .total_gains_from_other_assets.base_cost +
+            lastYearObject.household_expenses.additional_tax_charge.details[index]
+              .total_gains_from_other_assets.accumulattive_gain);
+      }
+
+      if (
+        lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
+          .accumulattive_gain === 0
+      ) {
+        atc.total_gains_from_other_assets.rate_recognised_as_gain = 0;
+      } else {
+        atc.total_gains_from_other_assets.rate_recognised_as_gain =
+          lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
+            .accumulattive_gain /
+          (lastYearObject.household_expenses.additional_tax_charge.details[index]
+            .total_gains_from_other_assets.base_cost +
+            lastYearObject.household_expenses.additional_tax_charge.details[index]
+              .total_gains_from_other_assets.accumulattive_gain);
+
+        if (
+          lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
+            .accumulattive_gain < 1
+        ) {
+          atc.total_gains_from_other_assets.rate_recognised_as_gain = 1;
+        }
+      }
+    });
+
+    //set total gains from other assets -> base cost
+    remainingYearObject.household_expenses.additional_tax_charge.details.map((atc, index) => {
+      let tv1 =
+        lastYearObject.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
+          .base_cost -
+        remainingYearObject.household_expenses.financials.savings_and_investments.general_investment_accounts
+          .details[index].amount;
+      let tv2 =
+        remainingYearObject.household_income.savings_and_investments_income.general_investment_accounts
+          .details[index].amount *
+          atc.total_gains_from_other_assets.rate_recognised_as_base_cost -
+        remainingYearObject.auto_liquidation.general_investment_accounts.details[index].amount *
+          atc.total_gains_from_other_assets.rate_recognised_as_base_cost;
+      atc.total_gains_from_other_assets.base_cost_drawdown = Math.min(tv1, tv2);
+
+      let tempval1 =
+        yearsArray.reduce(
+          (a, b) =>
+            a +
+            b.household_expenses.financials.savings_and_investments.general_investment_accounts.details[index]
+              .amount,
+          0
+        ) +
+        remainingYearObject.household_expenses.financials.savings_and_investments.general_investment_accounts
+          .details[index].amount;
+
+      let tempval2 =
+        yearsArray.reduce(
+          (a, b) =>
+            a +
+            b.household_expenses.additional_tax_charge.details[index].total_gains_from_other_assets
+              .base_cost_drawdown,
+          0
+        ) + atc.total_gains_from_other_assets.base_cost_drawdown;
+      let tempval3 =
+        yearsArray.reduce(
+          (a, b) => a + b.auto_liquidation.general_investment_accounts.details[index].amount,
+          0
+        ) + remainingYearObject.auto_liquidation.general_investment_accounts.details[index].amount;
+
+      let val1 = 0;
+      let val2 =
+        inputs.assets.savings_and_investments.general_investment_account[index].original_balance -
+        tempval1 -
+        tempval2 +
+        tempval3;
+
+      atc.total_gains_from_other_assets.base_cost = Math.max(val1, val2);
+
+      atc.total_gains_from_other_assets.accumulattive_gain = 0;
+      if (atc.total_gains_from_other_assets.base_cost === 0) {
+        atc.total_gains_from_other_assets.accumulattive_gain =
+          remainingYearObject.assets.savings_and_investments.general_investment_accounts.details[
+            index
+          ].amount;
+      } else {
+        atc.total_gains_from_other_assets.accumulattive_gain =
+          remainingYearObject.assets.savings_and_investments.general_investment_accounts.details[index]
+            .amount - atc.total_gains_from_other_assets.base_cost;
+      }
+    });
+
     yearsArray.push(remainingYearObject);
   }
 };

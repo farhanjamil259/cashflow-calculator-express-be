@@ -20,10 +20,18 @@ export default interface IForecast {
       amount: number;
     };
     savings_and_investments: {
-      details: Array<{
-        name: string;
-        amount: number;
-      }>;
+      individual_savings_accounts: {
+        details: Array<{
+          name: string;
+          amount: number;
+        }>;
+      };
+      general_investment_accounts: {
+        details: Array<{
+          name: string;
+          amount: number;
+        }>;
+      };
       total: number;
     };
     personal_pension_plans: {
@@ -107,10 +115,18 @@ export default interface IForecast {
       total: number;
     };
     savings_and_investments_income: {
-      details: Array<{
-        name: string;
-        amount: number;
-      }>;
+      individual_savings_accounts: {
+        details: Array<{
+          name: string;
+          amount: number;
+        }>;
+      };
+      general_investment_accounts: {
+        details: Array<{
+          name: string;
+          amount: number;
+        }>;
+      };
       total: number;
     };
     pension_income: {
@@ -239,10 +255,18 @@ export default interface IForecast {
         total: number;
       };
       savings_and_investments: {
-        details: Array<{
-          name: string;
-          amount: number;
-        }>;
+        individual_savings_accounts: {
+          details: Array<{
+            name: string;
+            amount: number;
+          }>;
+        };
+        general_investment_accounts: {
+          details: Array<{
+            name: string;
+            amount: number;
+          }>;
+        };
         total: number;
       };
       pension_pot: {
@@ -260,10 +284,24 @@ export default interface IForecast {
         total: number;
       };
       insurance_policies: {
-        details: Array<{
-          name: string;
-          amount: number;
-        }>;
+        life_insurance: {
+          details: Array<{
+            name: string;
+            amount: number;
+          }>;
+        };
+        critical_illness_cover: {
+          details: Array<{
+            name: string;
+            amount: number;
+          }>;
+        };
+        family_income_benefit: {
+          details: Array<{
+            name: string;
+            amount: number;
+          }>;
+        };
         total: number;
       };
       total: number;
@@ -337,4 +375,28 @@ export default interface IForecast {
     total_household_expenses: number;
   };
   annual_cash_inflow_outflow: number;
+
+  auto_liquidation: {
+    shortfall: number;
+    aggregated_bank_Accounts: number;
+    individual_savings_accounts: {
+      details: Array<{
+        name: string;
+        amount: number;
+      }>;
+    };
+    pension_plans: {
+      details: Array<{
+        name: string;
+        amount: number;
+      }>;
+    };
+    general_investment_accounts: {
+      details: Array<{
+        name: string;
+        amount: number;
+      }>;
+    };
+    credit_card_borrowing: number;
+  };
 }

@@ -23,6 +23,7 @@ app.use("/api/forecast", require("./routes/api/forecast"));
 app.use("/api/summary", require("./routes/api/summary"));
 app.use("/api/auth", require("./routes/api/auth"));
 app.use("/api/client", require("./routes/api/client"));
+app.use("/api/events", require("./routes/api/events"));
 
 //Set port and listen to the set port
 const PORT = process.env.PORT || 4000;

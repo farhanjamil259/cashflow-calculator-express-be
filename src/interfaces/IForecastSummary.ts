@@ -35,6 +35,7 @@ interface IForecastSummary {
     total_residential_sale_proceeds: number;
     total_other_income: number;
     total_income: number;
+    aggregated_bank_accounts: number;
   };
   expense_analysis: {
     total_housing_expenses: number;

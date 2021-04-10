@@ -38,6 +38,7 @@ const setForecastSummary = (yearsArray: Array<IForecast>, inputs: IInputs) => {
         total_pension_income: 0,
         total_residential_sale_proceeds: 0,
         total_other_income: 0,
+        aggregated_bank_accounts: 0,
         total_income: 0,
       },
       expense_analysis: {
@@ -102,7 +103,8 @@ const setForecastSummary = (yearsArray: Array<IForecast>, inputs: IInputs) => {
       yearsSummaryObject.assets_and_liabilities_analysis.credit_card;
 
     //set cash flow analysis
-    yearsSummaryObject.cash_flow_analysis.total_household_income = ya.household_income.total;
+    yearsSummaryObject.cash_flow_analysis.total_household_income =
+      ya.household_income.total - ya.auto_liquidation.aggregated_bank_Accounts;
     yearsSummaryObject.cash_flow_analysis.total_household_expenses =
       ya.household_expenses.total_household_expenses;
 
@@ -122,6 +124,8 @@ const setForecastSummary = (yearsArray: Array<IForecast>, inputs: IInputs) => {
     yearsSummaryObject.income_analysis.total_residential_sale_proceeds =
       ya.household_income.residential_property_sale_proceeds.total;
     yearsSummaryObject.income_analysis.total_other_income = ya.household_income.other_income.total;
+    yearsSummaryObject.income_analysis.aggregated_bank_accounts = -ya.auto_liquidation
+      .aggregated_bank_Accounts;
 
     yearsSummaryObject.income_analysis.total_income =
       yearsSummaryObject.income_analysis.total_employment_income +
@@ -130,7 +134,8 @@ const setForecastSummary = (yearsArray: Array<IForecast>, inputs: IInputs) => {
       yearsSummaryObject.income_analysis.total_dividend_income +
       yearsSummaryObject.income_analysis.total_savings_and_investments_drawdowns +
       yearsSummaryObject.income_analysis.total_pension_income +
-      yearsSummaryObject.income_analysis.total_other_income;
+      yearsSummaryObject.income_analysis.total_other_income +
+      yearsSummaryObject.income_analysis.aggregated_bank_accounts;
 
     //set expense analysis
     yearsSummaryObject.expense_analysis.total_housing_expenses = -ya.household_expenses.housing.total;
@@ -172,8 +177,11 @@ const setForecastSummary = (yearsArray: Array<IForecast>, inputs: IInputs) => {
         atc.nic_class_2_charge -
         atc.nic_class_4_charge;
       const total_tax_income = income_tax_charge + national_insurance;
-      const total_taxable_income = atc.pension_plan + atc.total_taxable_income;
-      const effective_tax_rate = (total_tax_income / total_taxable_income) * 100;
+      const total_taxable_income =
+        ya.household_expenses.additional_tax_charge.details[i].total_taxable_income_excluding_dividends -
+        ya.household_expenses.additional_tax_charge.details[i].pension_plan -
+        ya.household_expenses.additional_tax_charge.details[i].prior_year_excess_pension_contribution;
+      const effective_tax_rate = total_tax_income / total_taxable_income;
 
       yearsSummaryObject.income_tax_analysis.details.push({
         name,
@@ -221,7 +229,9 @@ const setForecastSummary = (yearsArray: Array<IForecast>, inputs: IInputs) => {
       yearsSummaryObject.property_analysis.ltv_details.push({ name, amount });
     });
 
-    yearsSummaryArray.push(yearsSummaryObject);
+    console.log(
+      yearsSummaryObject.year + ": " + yearsSummaryObject.assets_and_liabilities_analysis.net_asset_possition
+    );
   });
   return yearsSummaryArray;
 };

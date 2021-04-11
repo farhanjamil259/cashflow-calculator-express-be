@@ -229,9 +229,7 @@ const setForecastSummary = (yearsArray: Array<IForecast>, inputs: IInputs) => {
       yearsSummaryObject.property_analysis.ltv_details.push({ name, amount });
     });
 
-    console.log(
-      yearsSummaryObject.year + ": " + yearsSummaryObject.assets_and_liabilities_analysis.net_asset_possition
-    );
+    yearsSummaryArray.push(yearsSummaryObject);
   });
   return yearsSummaryArray;
 };

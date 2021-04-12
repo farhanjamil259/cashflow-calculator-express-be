@@ -119,8 +119,12 @@ const setForecastSummary = (yearsArray: Array<IForecast>, inputs: IInputs) => {
     yearsSummaryObject.income_analysis.total_rental_income = ya.household_income.rental_income.total;
     yearsSummaryObject.income_analysis.total_dividend_income = ya.household_income.dividend_income.total;
     yearsSummaryObject.income_analysis.total_savings_and_investments_drawdowns =
-      ya.household_income.savings_and_investments_income.total;
-    yearsSummaryObject.income_analysis.total_pension_income = ya.household_income.pension_income.total;
+      ya.household_income.savings_and_investments_income.total -
+      ya.auto_liquidation.individual_savings_accounts.details.reduce((a, b) => a + b.amount, 0) -
+      ya.auto_liquidation.general_investment_accounts.details.reduce((a, b) => a + b.amount, 0);
+    yearsSummaryObject.income_analysis.total_pension_income =
+      ya.household_income.pension_income.total -
+      ya.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0);
     yearsSummaryObject.income_analysis.total_residential_sale_proceeds =
       ya.household_income.residential_property_sale_proceeds.total;
     yearsSummaryObject.income_analysis.total_other_income = ya.household_income.other_income.total;
@@ -231,6 +235,7 @@ const setForecastSummary = (yearsArray: Array<IForecast>, inputs: IInputs) => {
 
     yearsSummaryArray.push(yearsSummaryObject);
   });
+
   return yearsSummaryArray;
 };
 

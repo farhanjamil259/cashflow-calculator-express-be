@@ -226,7 +226,21 @@ const setRemainingForecastYears = (
     //set owners ages
     inputs.household_owners.map((owner, index) => {
       const name = owner.name;
-      let age = lastYearObject.ages.owner_ages[index].age + 1;
+      let age = 0;
+
+      if (i < inputs.household_owners[index].end_of_forecast_year) {
+        if (lastYearObject.ages.owner_ages[index].age === 0) {
+          age = 0;
+        } else {
+          if (
+            lastYearObject.ages.owner_ages[index].age + 1 <
+              inputs.household_owners[index].end_of_forecast_age + 1 ||
+            age === 0
+          ) {
+            age = lastYearObject.ages.owner_ages[index].age + 1;
+          }
+        }
+      }
 
       remainingYearObject.ages.owner_ages.push({ name, age });
     });
@@ -568,10 +582,9 @@ const setRemainingForecastYears = (
     //state pension income
     inputs.household_income.pension_income.state_pension.map((income, index) => {
       const name = inputs.household_owners[index].name;
-      const age = inputs.household_owners[index].current_age;
       let amount = 0;
 
-      if (age > 0) {
+      if (remainingYearObject.ages.owner_ages[index].age > 0) {
         if (i >= income.start_year && i <= income.end_year) {
           amount = income.annual_amount * (1 + income.inflation) ** (i - inputs.current_year);
         } else {
@@ -1926,6 +1939,8 @@ const setRemainingForecastYears = (
         }
       }
 
+      capital_gains_tax_other_assets *= -1;
+
       let tax_deducted_at_source =
         remainingYearObject.household_income.employment_income.details[index].income_tax_charge;
 
@@ -1940,6 +1955,8 @@ const setRemainingForecastYears = (
         nic_class_2_charge +
         nic_class_4_charge +
         tax_credit_received_through_pension +
+        capital_gains_tax_residential_property +
+        capital_gains_tax_other_assets +
         tax_deducted_at_source;
 
       const pension_annual_allowance_tapering_analysis = {
@@ -2099,6 +2116,7 @@ const setRemainingForecastYears = (
             remainingYearObject.auto_liquidation.aggregated_bank_Accounts
         );
       }
+      amount *= -1;
 
       remainingYearObject.auto_liquidation.individual_savings_accounts.details.push({ amount, name });
     } else {
@@ -2123,6 +2141,7 @@ const setRemainingForecastYears = (
             remainingYearObject.auto_liquidation.aggregated_bank_Accounts
         );
       }
+      amount1 *= -1;
 
       remainingYearObject.auto_liquidation.individual_savings_accounts.details.push({
         amount: amount1,
@@ -2153,6 +2172,7 @@ const setRemainingForecastYears = (
             remainingYearObject.auto_liquidation.individual_savings_accounts.details[0].amount
         );
       }
+      amount2 *= -1;
     }
 
     if (inputs.household_owners.length === 1) {
@@ -2217,6 +2237,8 @@ const setRemainingForecastYears = (
             );
 
           amount = Math.min(val1, val2);
+
+          amount *= -1;
 
           remainingYearObject.auto_liquidation.pension_plans.details.push({ amount, name });
         }
@@ -2286,6 +2308,7 @@ const setRemainingForecastYears = (
           amount2 = Math.min(val1, val2);
         }
       }
+      amount2 *= -1;
 
       remainingYearObject.auto_liquidation.pension_plans.details.push({ amount: amount2, name: name2 });
 
@@ -2355,6 +2378,7 @@ const setRemainingForecastYears = (
         }
       }
 
+      amount3 *= -1;
       remainingYearObject.auto_liquidation.pension_plans.details.push({ amount: amount3, name: name3 });
     }
 
@@ -2388,6 +2412,7 @@ const setRemainingForecastYears = (
         );
       }
 
+      amount *= -1;
       remainingYearObject.auto_liquidation.general_investment_accounts.details.push({ amount, name });
     } else {
       const name = inputs.assets.savings_and_investments.general_investment_account[0].name;
@@ -2416,6 +2441,7 @@ const setRemainingForecastYears = (
             remainingYearObject.auto_liquidation.aggregated_bank_Accounts
         );
       }
+      amount1 *= -1;
 
       remainingYearObject.auto_liquidation.general_investment_accounts.details.push({
         amount: amount1,
@@ -2456,6 +2482,7 @@ const setRemainingForecastYears = (
             remainingYearObject.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0)
         );
       }
+      amount2 *= -1;
     }
 
     remainingYearObject.auto_liquidation.credit_card_borrowing =
@@ -2581,7 +2608,7 @@ const setRemainingForecastYears = (
         }
       }
 
-      amount += Math.abs(remainingYearObject.auto_liquidation.pension_plans.details[index].amount);
+      amount += remainingYearObject.auto_liquidation.pension_plans.details[index].amount;
       remainingYearObject.assets.personal_pension_plans.details.push({ name, amount });
       remainingYearObject.assets.personal_pension_plans.total += amount;
     });

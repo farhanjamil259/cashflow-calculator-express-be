@@ -6,7 +6,7 @@ const app: Application = express();
 
 //Initialize middleware
 app.use(express.json({ limit: "300kb" }));
-app.use(cors());
+app.use(cors({ origin: "*" }));
 
 //connect database
 connectDB();

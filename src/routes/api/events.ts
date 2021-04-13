@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import { validateId } from "../../helpers/generalHelpers";
 
 import Event from "../../models/event";
 
@@ -43,5 +44,16 @@ router.post("/:id", async (req: Request, res: Response) => {
     res.send(err);
   }
 });
+
+router.delete("/:id", async (req: Request, res: Response) => {
+  try {
+    await Event.findByIdAndDelete(req.params.id);
+    res.status(200).send("Successfully Deleted");
+  } catch (err) {
+    console.log(err);
+  }
+});
+
+// router.patch();
 
 module.exports = router;

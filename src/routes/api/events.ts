@@ -45,12 +45,30 @@ router.post("/:id", async (req: Request, res: Response) => {
   }
 });
 
+//@route POST api/events/id
+//@desc deleted event based on event id
+//@access public
 router.delete("/:id", async (req: Request, res: Response) => {
   try {
     await Event.findByIdAndDelete(req.params.id);
     res.status(200).send("Successfully Deleted");
   } catch (err) {
     console.log(err);
+  }
+});
+
+//@route patch api/events/id
+//@desc updates event based on event id
+//@access public
+router.patch("/:id", async (req: Request, res: Response) => {
+  try {
+    await Event.findOneAndReplace({ _id: req.params.id }, req.body);
+    await Event.findById(req.params.id);
+
+    res.status(200).send("Successfully Updated");
+  } catch (err) {
+    console.log(err);
+    res.send(err);
   }
 });
 

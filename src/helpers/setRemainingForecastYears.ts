@@ -2171,6 +2171,7 @@ const setRemainingForecastYears = (
             remainingYearObject.auto_liquidation.individual_savings_accounts.details[0].amount +
             remainingYearObject.auto_liquidation.individual_savings_accounts.details[0].amount
         );
+        remainingYearObject.auto_liquidation.individual_savings_accounts.details[1].amount *= -1;
       }
       amount2 *= -1;
     }
@@ -2516,6 +2517,10 @@ const setRemainingForecastYears = (
       remainingYearObject.creditors.credit_cards.change_in_year;
 
     inputs.assets.savings_and_investments.individual_savings_account.map((sai, index) => {
+      console.log(
+        i + ": " + remainingYearObject.auto_liquidation.individual_savings_accounts.details[index].amount
+      );
+
       const name = sai.name;
       const amount =
         lastYearObject.assets.savings_and_investments.individual_savings_accounts.details[index].amount *

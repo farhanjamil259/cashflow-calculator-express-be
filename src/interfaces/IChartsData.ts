@@ -28,6 +28,7 @@ export default interface IChartsData {
     pension_income: number[];
     other_income: number[];
     bank_accounts: number[];
+    total_income: number[];
   };
   expenses: {
     housing: number[];

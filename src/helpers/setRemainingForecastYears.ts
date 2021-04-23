@@ -2499,6 +2499,8 @@ const setRemainingForecastYears = (
       ) +
       remainingYearObject.auto_liquidation.pension_plans.details.reduce((a, b) => a + b.amount, 0);
 
+    remainingYearObject.auto_liquidation.credit_card_borrowing *= -1;
+
     remainingYearObject.creditors.credit_cards.change_in_year = 0;
 
     if (remainingYearObject.creditors.credit_card_requirement_analysis.cash_available < 0) {
@@ -2517,10 +2519,6 @@ const setRemainingForecastYears = (
       remainingYearObject.creditors.credit_cards.change_in_year;
 
     inputs.assets.savings_and_investments.individual_savings_account.map((sai, index) => {
-      console.log(
-        i + ": " + remainingYearObject.auto_liquidation.individual_savings_accounts.details[index].amount
-      );
-
       const name = sai.name;
       const amount =
         lastYearObject.assets.savings_and_investments.individual_savings_accounts.details[index].amount *

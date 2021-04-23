@@ -42,7 +42,13 @@ router.get("/:id", async (req: Request, res: Response) => {
     const yearsSummaryArray = setForecastSummary(yearsArray, inputs);
 
     let chartsData: IChartsData = {
+      type: "Nominal",
       years: [],
+      retirement_ages: [],
+      ages: {
+        owners: [],
+        children: [],
+      },
       cashflow: {
         employment_income: [],
         self_employment_income: [],
@@ -87,8 +93,25 @@ router.get("/:id", async (req: Request, res: Response) => {
       },
     };
 
+    inputs.household_owners.map((o) => {
+      chartsData.retirement_ages.push(o.retirement_age);
+      chartsData.ages.owners.push([]);
+    });
+
+    inputs.children.map((o) => {
+      chartsData.ages.children.push([]);
+    });
+
     yearsSummaryArray.map((s) => {
       chartsData.years.push(s.year);
+
+      inputs.household_owners.map((o, i) => {
+        chartsData.ages.owners[i].push(s.ages.owner_ages[i].age);
+      });
+
+      inputs.children.map((o, i) => {
+        chartsData.ages.children[i].push(s.ages.children_ages[i].age);
+      });
 
       chartsData.cashflow.employment_income.push(Math.round(s.income_analysis.total_employment_income));
       chartsData.cashflow.self_employment_income.push(

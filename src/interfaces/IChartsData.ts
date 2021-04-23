@@ -1,5 +1,11 @@
 export default interface IChartsData {
+  type: "Real" | "Nominal";
   years: number[];
+  retirement_ages: Array<number>;
+  ages: {
+    owners: Array<number[]>;
+    children: Array<number[]>;
+  };
   cashflow: {
     employment_income: number[];
     self_employment_income: number[];

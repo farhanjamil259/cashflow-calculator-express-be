@@ -24,6 +24,7 @@ export default interface IChartsData {
     savings_and_investments: number[];
     pension_plans: number[];
     liabilities: number[];
+    properties: number[];
   };
   income: {
     employment_income: number[];

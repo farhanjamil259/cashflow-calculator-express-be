@@ -66,6 +66,7 @@ router.get("/:id", async (req: Request, res: Response) => {
         aggregated_bank_accounts: [],
         savings_and_investments: [],
         pension_plans: [],
+        properties: [],
         liabilities: [],
       },
       income: {
@@ -157,6 +158,11 @@ router.get("/:id", async (req: Request, res: Response) => {
       chartsData.assets_and_liabilities.pension_plans.push(
         Math.round(s.assets_and_liabilities_analysis.total_pension_plans)
       );
+
+      chartsData.assets_and_liabilities.properties.push(
+        s.property_analysis.property_details.reduce((a, b) => a + b.amount, 0)
+      );
+
       chartsData.assets_and_liabilities.liabilities.push(
         Math.round(
           -s.assets_and_liabilities_analysis.total_mortgages -

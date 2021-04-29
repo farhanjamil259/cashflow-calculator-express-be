@@ -211,7 +211,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     });
 
     res.send(chartsData);
-
+    // t
     // res.send(yearsSummaryArray);
 
     // res.send(yearsArray);

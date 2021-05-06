@@ -24,6 +24,7 @@ app.use("/api/summary", require("./routes/api/summary"));
 app.use("/api/auth", require("./routes/api/auth"));
 app.use("/api/client", require("./routes/api/client"));
 app.use("/api/events", require("./routes/api/events"));
+app.use("/api/needs", require("./routes/api/needsanalyis"));
 
 //Set port and listen to the set port
 const PORT = process.env.PORT || 4000;

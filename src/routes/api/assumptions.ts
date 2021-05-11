@@ -15,7 +15,7 @@ router.get("/", async (req: Request, res: Response) => {
     const foundAssumptions = await Assumptions.findOne();
     foundAssumptions
       ? res.status(200).json(foundAssumptions)
-      : res.status(400).json({ msg: "No Assumptions Added" });
+      : res.status(404).json({ msg: "No Assumptions Added" });
   } catch (err) {
     console.log(err);
     return res.status(500).send("Server Error");
@@ -25,7 +25,6 @@ router.get("/", async (req: Request, res: Response) => {
 //@route POST api/assumptions
 //@desc create/update assumptions
 //@access public
-
 router.post("/", async (req: Request, res: Response) => {
   //deconstructing request body
   const {

@@ -33,7 +33,7 @@ router.get("/all/:id", async (req: Request, res: Response) => {
 });
 
 //@route GET api/inputs/:id
-//@desc gets inputs by user set name
+//@desc gets inputs by inputs id
 //@access public
 router.get("/:id", async (req: Request, res: Response) => {
   //get id from params
@@ -64,7 +64,8 @@ router.post("/:id", async (req: Request, res: Response) => {
     const assumptions: any = await Assumptions.findOne();
     //get inputs from request
     const inputs: IInputs = req.body;
-
+    console.log(JSON.stringify(inputs));
+    
     //duplicate set name check
     const foundInputs: any = await Inputs.findOne({ input_set_name: inputs.input_set_name });
     if (foundInputs) {

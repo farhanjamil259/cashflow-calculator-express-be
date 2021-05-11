@@ -73,14 +73,14 @@ router.get("/:userid", async (req, res) => {
   }
 });
 
-//get client by id
-router.get("/:id", async (req, res) => {
-  const clientId = req.params.id;
+// //get client by id
+// router.get("/:id", async (req, res) => {
+//   const clientId = req.params.id;
 
-  const foundClient = await Client.findOne({ _id: clientId });
+//   const foundClient = await Client.findOne({ _id: clientId });
 
-  res.send(foundClient);
-});
+//   res.send(foundClient);
+// });
 
 //delete client by id
 router.delete("/:clientid", async (req, res) => {

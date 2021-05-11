@@ -22,7 +22,10 @@ router.post("/login", async (req: Request, res: Response) => {
     } else {
       return res.status(203).send({ msg: "Invalid Credentials" });
     }
-  } catch (err) {}
+  } catch (err) {
+    console.log(err);
+    
+  }
 });
 
 //register user route
@@ -46,7 +49,9 @@ router.post("/register", async (req: Request, res: Response) => {
   } catch (err) {
     console.log(err);
   }
-  res.status(201).send(newUser);
+  res.status(201).json({
+    msg: "User successfully created"
+  });
 });
 
 module.exports = router;
